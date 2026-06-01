@@ -12,6 +12,16 @@ A Go-based ReAct agent endpoint that uses multi-step reasoning with Ollama. It a
 - **Graceful Degradation**: Returns best answer found if max steps hit (not an error)
 - **Clean UI**: Matches existing OmniRAG theme with Tailwind dark mode
 
+## Screenshots
+
+**Query Interface** — Ask complex questions with multi-step reasoning:
+
+<img src="./docs/screenshots/query-interface.png" alt="ReAct Agent - Query Interface" width="100%">
+
+**Reasoning Output** — See step-by-step reasoning and final answers:
+
+<img src="./docs/screenshots/reasoning-results.png" alt="ReAct Agent - Reasoning Results" width="100%">
+
 ## UI Features
 
 The web interface at `http://localhost:8082/agent` provides:
