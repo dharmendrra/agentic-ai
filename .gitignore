@@ -1,13 +1,15 @@
+# Binaries
 agent
+agentic-ai
 *.exe
-*.exe~
 *.dll
 *.so
-*.so.*
 *.dylib
-*.test
-*.out
-.env
-.env.local
-config.local.json
+
+# Temp files
+*.tmp
+*.temp
 .DS_Store
+
+# Config (local overrides)
+config.local.json
