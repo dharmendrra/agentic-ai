@@ -118,12 +118,12 @@ func (t *PDFSearchTool) Execute(query string) (string, error) {
 
 		if len(chunks) > 0 {
 			result = strings.Join(chunks, "\n---\n")
+			log.Printf("[TOOL] search_pdf: SUCCESS - returning %d chunks", len(chunks))
+			return fmt.Sprintf("[PDF_SUCCESS|Found %d matching chunks]\n%s", len(chunks), result), nil
 		}
 		break
 	}
 
-	if result == "" {
-		return "No results found in PDF", nil
-	}
-	return result, nil
+	log.Printf("[TOOL] search_pdf: EMPTY - no chunks found in PDF")
+	return "[PDF_EMPTY|No matching documents found in PDF]", nil
 }

@@ -138,11 +138,12 @@ Observation: [result from the tool]
 
 CRITICAL LOGIC:
 1. ALWAYS try search_pdf FIRST
-2. If search_pdf returns NO RESULTS or "no information":
+2. If you see "[PDF_EMPTY]" in the observation:
    - DO NOT return Final Answer yet
    - MUST try web_search as fallback
-   - Combine both sources in your answer
-3. If search_pdf returns GOOD RESULTS:
+   - Provide answer from web_search
+3. If you see "[PDF_SUCCESS]" in the observation:
+   - You have good PDF data
    - You may provide Final Answer immediately
    - Or try web_search for additional context (optional)
 
