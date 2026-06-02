@@ -95,7 +95,6 @@ async function runAgent() {
     card.textEl.classList.remove('cursor');
 
     stepsList.innerHTML = '<div class="text-xs text-slate-500">ReAct reasoning complete</div>';
-    card.el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
   } catch (err) {
     showError(err.message || 'An error occurred');
@@ -105,6 +104,7 @@ async function runAgent() {
     setLoading(false);
     agentInput.value = '';
     agentInput.focus();
+    agentInput.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 }
 

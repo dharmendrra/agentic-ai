@@ -56,6 +56,31 @@
         </div>
       </header>
 
+      <!-- Search Input (Always Visible) -->
+      <div id="search-container" class="rounded-2xl border border-slate-800 bg-slate-950/40 p-4 mb-6">
+        <label for="agent-input" class="block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 mb-3">Your Question</label>
+        <textarea
+          id="agent-input"
+          rows="2"
+          placeholder="How does the PDF explain pump maintenance? Compare PDF answers with web sources..."
+          class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white placeholder-slate-500 resize-none transition hover:border-emerald-500"
+          style="min-height:60px"
+        ></textarea>
+        <div class="mt-4 flex justify-end">
+          <button
+            id="agent-btn"
+            class="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-emerald-500"
+          >
+            <span id="btn-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+              </svg>
+            </span>
+            <span id="btn-label">Ask Agent</span>
+          </button>
+        </div>
+      </div>
+
       <!-- Main Content -->
       <section class="flex flex-1 flex-col gap-6">
         <!-- Hero Section (Instructions) -->
@@ -65,31 +90,6 @@
             ReAct Loop · Multi-Step Reasoning · PDF + Web
           </div>
           <h2 class="mt-4 text-2xl font-semibold text-white">Ask complex questions with reasoning</h2>
-        </div>
-
-        <!-- Search Input (Always Visible) -->
-        <div class="rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
-          <label for="agent-input" class="block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 mb-3">Your Question</label>
-          <textarea
-            id="agent-input"
-            rows="2"
-            placeholder="How does the PDF explain pump maintenance? Compare PDF answers with web sources..."
-            class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white placeholder-slate-500 resize-none transition hover:border-emerald-500"
-            style="min-height:60px"
-          ></textarea>
-          <div class="mt-4 flex justify-end">
-            <button
-              id="agent-btn"
-              class="flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-emerald-500"
-            >
-              <span id="btn-icon">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-                </svg>
-              </span>
-              <span id="btn-label">Ask Agent</span>
-            </button>
-          </div>
         </div>
 
         <!-- Reasoning Steps -->
