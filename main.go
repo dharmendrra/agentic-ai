@@ -143,9 +143,15 @@ CRITICAL LOGIC:
    - MUST try web_search as fallback
    - Provide answer from web_search
 3. If you see "[PDF_SUCCESS]" in the observation:
-   - You have good PDF data
-   - You may provide Final Answer immediately
-   - Or try web_search for additional context (optional)
+   - You have PDF sources
+   - If the sources actually answer the query: Provide Final Answer
+   - If sources are irrelevant or don't contain the answer:
+     * Do NOT try to answer from irrelevant sources
+     * MUST try web_search as fallback
+     * Example: Query about "Harry Potter" but sources are about AI/ML
+   - Test: Do the source chunks mention keywords from the query?
+     * Yes → Use PDF answer
+     * No → Try web_search
 
 When you have sufficient information from either tool:
 Final Answer: [your complete answer based on observations]
