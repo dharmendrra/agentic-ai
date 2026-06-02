@@ -174,9 +174,9 @@ Your main app can:
 
 Complete documentation is in the `docs/` folder:
 
+- **[PIPELINE_FLOW.md](docs/PIPELINE_FLOW.md)** - Visual flow diagram: query → vectors → search → answer
 - **[HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md)** - Plain English explanation for humans
 - **[QUICKSTART.md](docs/QUICKSTART.md)** - 5-minute setup guide
-- **[QUERY_PIPELINE_DFD.md](docs/QUERY_PIPELINE_DFD.md)** - Complete query pipeline: text → chunks → vectors → search → answer
 - **[DATAFLOW.md](docs/DATAFLOW.md)** - Agent reasoning loop (ReAct with tool selection)
 - **[PDF_ENDPOINT_SSE_FORMAT.md](docs/PDF_ENDPOINT_SSE_FORMAT.md)** - Real SSE payload format from search endpoint
 - **[INTEGRATION.md](docs/INTEGRATION.md)** - Integration with existing systems
