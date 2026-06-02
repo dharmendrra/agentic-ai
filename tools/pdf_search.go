@@ -76,9 +76,31 @@ func (t *PDFSearchTool) Execute(query string) (string, error) {
 		log.Printf("[TOOL] search_pdf: Parsing SSE stream response")
 		scanner := bufio.NewScanner(resp.Body)
 		var chunks []string
+		var foundError bool
 
 		for scanner.Scan() {
 			line := scanner.Text()
+
+			// Check for error event (means no results)
+			if strings.HasPrefix(line, "event: error") {
+				foundError = true
+				log.Printf("[TOOL] search_pdf: Found error event in stream - no results")
+				// Read the data line
+				if scanner.Scan() {
+					dataLine := scanner.Text()
+					if strings.HasPrefix(dataLine, "data: ") {
+						jsonStr := strings.TrimPrefix(dataLine, "data: ")
+						var errEvent struct {
+							Stage   string `json:"stage"`
+							Message string `json:"message"`
+						}
+						if err := json.Unmarshal([]byte(jsonStr), &errEvent); err == nil {
+							log.Printf("[TOOL] search_pdf: Error from endpoint - %s: %s", errEvent.Stage, errEvent.Message)
+						}
+					}
+				}
+				break // Stream ends after error
+			}
 
 			// Look for "event: sources" followed by "data: {...}"
 			if strings.HasPrefix(line, "event: sources") {
@@ -109,6 +131,11 @@ func (t *PDFSearchTool) Execute(query string) (string, error) {
 					}
 				}
 			}
+		}
+
+		if foundError {
+			log.Printf("[TOOL] search_pdf: EMPTY - error event indicates no matching documents")
+			return "[PDF_EMPTY|No matching documents found in PDF]", nil
 		}
 
 		if err := scanner.Err(); err != nil {
