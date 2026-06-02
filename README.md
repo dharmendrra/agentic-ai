@@ -175,6 +175,7 @@ Your main app can:
 Complete documentation is in the `docs/` folder:
 
 - **[QUICKSTART.md](docs/QUICKSTART.md)** - 5-minute setup guide
+- **[DATAFLOW.md](docs/DATAFLOW.md)** - Detailed data flow diagrams (Mermaid)
 - **[INTEGRATION.md](docs/INTEGRATION.md)** - Integration with existing systems
 - **[IMPLEMENTATION.md](docs/IMPLEMENTATION.md)** - Technical architecture & design
 - **[TOOLS_ARCHITECTURE.md](docs/TOOLS_ARCHITECTURE.md)** - How tools work & adding new tools
