@@ -175,8 +175,9 @@ Your main app can:
 Complete documentation is in the `docs/` folder:
 
 - **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** - 6 system components & flows (professional diagrams)
+- **[TECHNICAL_FLOW.md](docs/TECHNICAL_FLOW.md)** - Detailed technical walkthrough (for engineers)
 - **[PIPELINE_FLOW.md](docs/PIPELINE_FLOW.md)** - Visual flow diagram: query → vectors → search → answer
-- **[HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md)** - Plain English explanation for humans
+- **[HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md)** - Plain English explanation (non-technical)
 - **[QUICKSTART.md](docs/QUICKSTART.md)** - 5-minute setup guide
 - **[DATAFLOW.md](docs/DATAFLOW.md)** - Agent reasoning loop (ReAct with tool selection)
 - **[PDF_ENDPOINT_SSE_FORMAT.md](docs/PDF_ENDPOINT_SSE_FORMAT.md)** - Real SSE payload format from search endpoint
