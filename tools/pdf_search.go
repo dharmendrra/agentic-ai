@@ -77,6 +77,7 @@ func (t *PDFSearchTool) Execute(query string) (string, error) {
 		scanner := bufio.NewScanner(resp.Body)
 		var chunks []string
 		var foundError bool
+		var llmResponse strings.Builder
 
 		for scanner.Scan() {
 			line := scanner.Text()
@@ -100,6 +101,22 @@ func (t *PDFSearchTool) Execute(query string) (string, error) {
 					}
 				}
 				break // Stream ends after error
+			}
+
+			// Collect LLM response tokens
+			if strings.HasPrefix(line, "event: token") {
+				if scanner.Scan() {
+					dataLine := scanner.Text()
+					if strings.HasPrefix(dataLine, "data: ") {
+						jsonStr := strings.TrimPrefix(dataLine, "data: ")
+						var tokenEvent struct {
+							Text string `json:"text"`
+						}
+						if err := json.Unmarshal([]byte(jsonStr), &tokenEvent); err == nil {
+							llmResponse.WriteString(tokenEvent.Text)
+						}
+					}
+				}
 			}
 
 			// Look for "event: sources" followed by "data: {...}"
@@ -136,6 +153,15 @@ func (t *PDFSearchTool) Execute(query string) (string, error) {
 		if foundError {
 			log.Printf("[TOOL] search_pdf: EMPTY - error event indicates no matching documents")
 			return "[PDF_EMPTY|No matching documents found in PDF]", nil
+		}
+
+		// Check if LLM response indicates "I don't know"
+		llmText := strings.ToLower(llmResponse.String())
+		if strings.Contains(llmText, "i do not know") || strings.Contains(llmText, "i don't know") ||
+			strings.Contains(llmText, "no information") || strings.Contains(llmText, "cannot find") ||
+			strings.Contains(llmText, "not found") {
+			log.Printf("[TOOL] search_pdf: LLM indicated insufficient knowledge - treating as empty")
+			return "[PDF_EMPTY|No relevant information found in PDF]", nil
 		}
 
 		if err := scanner.Err(); err != nil {
