@@ -77,15 +77,14 @@ func (t *PDFSearchTool) Execute(query string) (string, error) {
 		scanner := bufio.NewScanner(resp.Body)
 		var chunks []string
 		var foundError bool
-		var llmResponse strings.Builder
 
 		for scanner.Scan() {
 			line := scanner.Text()
 
-			// Check for error event (means no results)
+			// Check for error event (means no results found by Pinecone)
 			if strings.HasPrefix(line, "event: error") {
 				foundError = true
-				log.Printf("[TOOL] search_pdf: Found error event in stream - no results")
+				log.Printf("[TOOL] search_pdf: Found error event in stream - no results from Pinecone")
 				// Read the data line
 				if scanner.Scan() {
 					dataLine := scanner.Text()
@@ -96,30 +95,14 @@ func (t *PDFSearchTool) Execute(query string) (string, error) {
 							Message string `json:"message"`
 						}
 						if err := json.Unmarshal([]byte(jsonStr), &errEvent); err == nil {
-							log.Printf("[TOOL] search_pdf: Error from endpoint - %s: %s", errEvent.Stage, errEvent.Message)
+							log.Printf("[TOOL] search_pdf: Endpoint error - %s: %s", errEvent.Stage, errEvent.Message)
 						}
 					}
 				}
 				break // Stream ends after error
 			}
 
-			// Collect LLM response tokens
-			if strings.HasPrefix(line, "event: token") {
-				if scanner.Scan() {
-					dataLine := scanner.Text()
-					if strings.HasPrefix(dataLine, "data: ") {
-						jsonStr := strings.TrimPrefix(dataLine, "data: ")
-						var tokenEvent struct {
-							Text string `json:"text"`
-						}
-						if err := json.Unmarshal([]byte(jsonStr), &tokenEvent); err == nil {
-							llmResponse.WriteString(tokenEvent.Text)
-						}
-					}
-				}
-			}
-
-			// Look for "event: sources" followed by "data: {...}"
+			// Look for "event: sources" to extract chunks
 			if strings.HasPrefix(line, "event: sources") {
 				// Next line should be "data: ..."
 				if scanner.Scan() {
@@ -150,18 +133,15 @@ func (t *PDFSearchTool) Execute(query string) (string, error) {
 			}
 		}
 
+		// Decision: Check what happened
 		if foundError {
-			log.Printf("[TOOL] search_pdf: EMPTY - error event indicates no matching documents")
+			log.Printf("[TOOL] search_pdf: EMPTY - error event means Pinecone found no matching vectors")
 			return "[PDF_EMPTY|No matching documents found in PDF]", nil
 		}
 
-		// Check if LLM response indicates "I don't know"
-		llmText := strings.ToLower(llmResponse.String())
-		if strings.Contains(llmText, "i do not know") || strings.Contains(llmText, "i don't know") ||
-			strings.Contains(llmText, "no information") || strings.Contains(llmText, "cannot find") ||
-			strings.Contains(llmText, "not found") {
-			log.Printf("[TOOL] search_pdf: LLM indicated insufficient knowledge - treating as empty")
-			return "[PDF_EMPTY|No relevant information found in PDF]", nil
+		if len(chunks) == 0 {
+			log.Printf("[TOOL] search_pdf: EMPTY - no chunks extracted from sources")
+			return "[PDF_EMPTY|No matching documents found in PDF]", nil
 		}
 
 		if err := scanner.Err(); err != nil {
