@@ -122,17 +122,21 @@ Successful completion marker.
 ```go
 // PDF search tool reads SSE stream line-by-line:
 
-1. Skip `event: stage` events (informational only)
-2. Skip `event: token` events (not used by agent)
+1. Collect `event: stage` events (informational only)
+2. Collect `event: token` events to read what LLM says
 3. Check for `event: error`:
    - Return [PDF_EMPTY|No matching documents found]
    - **Stop reading** (stream ends)
-4. Look for `event: sources`:
+4. Analyze LLM response (from tokens) for phrases:
+   - "I do not know", "I don't know", "cannot find", "not found"
+   - If found: return [PDF_EMPTY|No relevant information found]
+   - This triggers web_search fallback
+5. Look for `event: sources`:
    - Extract `sources` array
    - Get `text_content` from each source
    - Join with "\n---\n" separator
    - Return [PDF_SUCCESS|Found N chunks]
-5. Expect `event: done` to confirm completion
+6. Expect `event: done` to confirm completion
 ```
 
 ## Empty Result Detection
