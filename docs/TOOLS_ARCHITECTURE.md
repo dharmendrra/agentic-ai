@@ -321,13 +321,12 @@ Action: calculate
 Action Input: 5 + 3 * 2
 ```
 
-## Summary
+## Design Decisions
 
-Tools are now:
-- ✅ Modular and isolated
-- ✅ Easy to add/modify
-- ✅ Well-logged for debugging
-- ✅ Testable independently
-- ✅ Reusable outside the agent
-
-The agent orchestrates tools via the Tool Manager, making the system clean and extensible!
+| Decision | Reason |
+|----------|--------|
+| Standard library only (`net/http`, `encoding/json`) | No dependency management, easy to deploy as a single binary |
+| Stateless service | Each request is fully independent — scales horizontally without session state |
+| External `config.json` | Config changes don't require a recompile |
+| Regex-based ReAct parser | Handles LLM output variations; gracefully falls through on parse errors |
+| 2-tool surface | Minimal tool set keeps system prompt tight and tool selection predictable |

@@ -172,22 +172,8 @@ Your main app can:
 
 ## Documentation
 
-Complete documentation is in the `docs/` folder:
-
-- **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** - 6 system components & flows (professional diagrams)
-- **[TECHNICAL_FLOW.md](docs/TECHNICAL_FLOW.md)** - Detailed technical walkthrough (for engineers)
-- **[PIPELINE_FLOW.md](docs/PIPELINE_FLOW.md)** - Visual flow diagram: query → vectors → search → answer
-- **[HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md)** - Plain English explanation (non-technical)
-- **[QUICKSTART.md](docs/QUICKSTART.md)** - 5-minute setup guide
-- **[DATAFLOW.md](docs/DATAFLOW.md)** - Agent reasoning loop (ReAct with tool selection)
-- **[PDF_ENDPOINT_SSE_FORMAT.md](docs/PDF_ENDPOINT_SSE_FORMAT.md)** - Real SSE payload format from search endpoint
-- **[INTEGRATION.md](docs/INTEGRATION.md)** - Integration with existing systems
-- **[IMPLEMENTATION.md](docs/IMPLEMENTATION.md)** - Technical architecture & design
-- **[TOOLS_ARCHITECTURE.md](docs/TOOLS_ARCHITECTURE.md)** - How tools work & adding new tools
-- **[LOGGING.md](docs/LOGGING.md)** - Understanding log output
-- **[STRUCTURE.md](docs/STRUCTURE.md)** - Project file layout
-- **[COMPARISON.md](docs/COMPARISON.md)** - Agent vs existing search API
-- **[GETTING_STARTED.txt](docs/GETTING_STARTED.txt)** - Quick reference card
-- **[FINAL_CHECKLIST.md](docs/FINAL_CHECKLIST.md)** - Deployment checklist
-
-Start with [QUICKSTART.md](docs/QUICKSTART.md) to get running in 5 minutes!
+- **[SETUP.md](docs/SETUP.md)** - Build, run, configure, deploy (Docker/nginx/systemd), troubleshoot
+- **[DFD.md](docs/DFD.md)** - Full data flow diagram (Mermaid) — exact services and transformations at every step
+- **[TOOLS_ARCHITECTURE.md](docs/TOOLS_ARCHITECTURE.md)** - Tool interface, how to add new tools, design decisions
+- **[LOGGING.md](docs/LOGGING.md)** - Log prefixes and how to debug the ReAct loop
+- **[PDF_ENDPOINT_SSE_FORMAT.md](docs/PDF_ENDPOINT_SSE_FORMAT.md)** - Real SSE payload format from the search endpoint
