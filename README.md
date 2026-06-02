@@ -174,6 +174,7 @@ Your main app can:
 
 Complete documentation is in the `docs/` folder:
 
+- **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** - 6 system components & flows (professional diagrams)
 - **[PIPELINE_FLOW.md](docs/PIPELINE_FLOW.md)** - Visual flow diagram: query → vectors → search → answer
 - **[HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md)** - Plain English explanation for humans
 - **[QUICKSTART.md](docs/QUICKSTART.md)** - 5-minute setup guide
