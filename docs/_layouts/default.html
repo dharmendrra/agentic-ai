@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="{{ site.lang | default: "en-US" }}">
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    {% seo %}
+    <link rel="stylesheet" href="{{ '/assets/css/style.css?v=' | append: site.github.build_revision | relative_url }}">
+    <style>
+      .site-nav { margin-top: 1rem; }
+      .site-nav a {
+        color: rgba(255, 255, 255, 0.9);
+        text-decoration: none;
+        margin: 0 0.4rem;
+        padding: 0.2rem 0.6rem;
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        border-radius: 0.3rem;
+        font-size: 0.9rem;
+        display: inline-block;
+      }
+      .site-nav a:hover { background: rgba(255, 255, 255, 0.15); }
+    </style>
+  </head>
+  <body>
+    <header class="page-header" role="banner">
+      <h1 class="project-name">{{ page.title | default: site.title | default: site.github.repository_name }}</h1>
+      <h2 class="project-tagline">{{ page.description | default: site.description | default: site.github.project_tagline }}</h2>
+      <nav class="site-nav">
+        <a href="{{ '/' | relative_url }}">Home</a>
+        <a href="{{ '/architecture' | relative_url }}">Architecture</a>
+        <a href="{{ '/agents' | relative_url }}">Agents</a>
+        <a href="{{ '/mcp' | relative_url }}">MCP</a>
+        <a href="{{ '/quickstart' | relative_url }}">Quick Start</a>
+        {% if site.github.repository_url %}
+          <a href="{{ site.github.repository_url }}">GitHub</a>
+        {% endif %}
+      </nav>
+    </header>
+
+    <main id="content" class="main-content" role="main">
+      {{ content }}
+
+      <footer class="site-footer">
+        {% if site.github.is_project_page %}
+          <span class="site-footer-owner">
+            <a href="{{ site.github.repository_url }}">{{ site.github.repository_name }}</a>
+            is maintained by
+            <a href="{{ site.github.owner_url }}">{{ site.github.owner_name }}</a>.
+          </span>
+        {% endif %}
+        <span class="site-footer-credits">
+          Page built with <a href="https://pages.github.com/">GitHub Pages</a>.
+        </span>
+      </footer>
+    </main>
+
+    <!-- Render ```mermaid fenced code blocks as diagrams -->
+    <script type="module">
+      import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+      mermaid.initialize({ startOnLoad: false, theme: 'default' });
+
+      // Kramdown renders ```mermaid as <pre><code class="language-mermaid">...
+      // Mermaid expects <pre class="mermaid">, so transform first.
+      document.querySelectorAll('code.language-mermaid').forEach((code) => {
+        const pre = code.parentElement;
+        const div = document.createElement('pre');
+        div.className = 'mermaid';
+        div.textContent = code.textContent;
+        pre.replaceWith(div);
+      });
+
+      await mermaid.run({ querySelector: 'pre.mermaid' });
+    </script>
+  </body>
+</html>

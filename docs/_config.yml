@@ -1,0 +1,4 @@
+title: agentic-ai
+description: A local agentic AI system — ReAct agent, MongoDB MCP, and dynamic tool discovery in Go
+theme: jekyll-theme-cayman
+show_downloads: false

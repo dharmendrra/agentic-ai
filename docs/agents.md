@@ -1,41 +1,32 @@
-# agents — ReAct Agent
+---
+layout: default
+title: Agents
+---
 
-An LLM-powered [ReAct](https://arxiv.org/abs/2210.03629) (Reason + Act) agent written in Go. It loops `Thought → Action → Observation` over a set of tools until it can produce a `Final Answer`. The agent has three tools: local PDF vector search, Tavily web search, and a single `mcp` tool that reaches the [MCP server](../mcp/) — its operations are discovered at runtime via the standard protocol.
+# Agents — ReAct Agent
+
+An LLM-powered [ReAct](https://arxiv.org/abs/2210.03629) (Reason + Act) agent written in Go. It loops `Thought → Action → Observation` over a set of tools until it can produce a `Final Answer`.
 
 The LLM backend is pluggable: it runs on local **Ollama** by default and switches to **Anthropic Claude** when configured — with no code change.
 
 ---
 
-## ReAct Loop
+## Tools
 
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant A as Agent :8082
-    participant L as LLM (Claude / Ollama)
-    participant T as Tool Registry
-    participant M as MCP Server :8083
+The agent has exactly **three** tools:
 
-    U->>A: POST /api/agent/query
-    A->>M: initialize (startup handshake)
+| Tool | Source |
+|---|---|
+| `search_pdf` | Local PDF vector search endpoint |
+| `web_search` | Tavily API |
+| `mcp` | Single umbrella tool to the MCP server — discovers DB operations at runtime |
 
-    loop until Final Answer (max MAX_STEPS)
-        A->>L: system prompt + conversation
-        L-->>A: Thought + Action + Action Input
-        A->>T: Execute(action, input)
-        alt mcp tool — list_tools
-            T->>M: tools/list
-            M-->>T: available operations
-        else mcp tool — specific operation
-            T->>M: tools/call
-            M-->>T: result
-        end
-        T-->>A: Observation
-    end
+The `mcp` tool is the key design choice. Rather than pre-registering every MongoDB operation, the agent exposes one tool. The LLM calls it with an `action` field:
 
-    L-->>A: Final Answer
-    A-->>U: { "answer": "..." }
-```
+- `{"action": "list_tools"}` — discover what the MCP server offers
+- `{"action": "query_documents", "collection": "...", ...}` — execute a specific operation
+
+This keeps the agent ignorant of the MCP server's internals — it only knows the standard protocol.
 
 ---
 
@@ -87,11 +78,12 @@ func (t *PDFSearchTool) Schema() ToolSchema {
 ```
 
 The `Manager` is the registry/compiler:
+
 - `Register(tool)` — adds a tool, preserving registration order
 - `Schemas()` — returns all schemas in order
 - `BuildPromptSection()` — compiles schemas into the system-prompt tool list
 
-This means a tool's description lives in exactly one place — the tool's own file — and is never duplicated in the prompt. The `mcp` tool's schema describes only the protocol (an `action` field); the server's individual operations are discovered at query time via `action: list_tools`, so the server stays the single source of truth for DB operations.
+A tool's description lives in exactly one place — the tool's own file — and is never duplicated in the prompt.
 
 ---
 
@@ -100,9 +92,9 @@ This means a tool's description lives in exactly one place — the tool's own fi
 Anthropic is used **only** when all three are set in `config.json`:
 
 ```jsonc
-"ANTHROPIC_API_KEY": "sk-ant-...",     // present
-"ANTHROPIC_MODEL":   "claude-haiku-4-5-20251001", // present
-"ANTHROPIC_CREDIT_BALANCE": true        // explicitly true
+"ANTHROPIC_API_KEY": "sk-ant-...",                 // present
+"ANTHROPIC_MODEL":   "claude-haiku-4-5-20251001",  // present
+"ANTHROPIC_CREDIT_BALANCE": true                    // explicitly true
 ```
 
 Otherwise the agent falls back to local Ollama. The `ANTHROPIC_CREDIT_BALANCE` flag lets you keep the key in config but force Ollama (e.g. when the Anthropic account is out of credits) by flipping it to `false`.
@@ -142,25 +134,6 @@ cp config.example.json config.json
 
 ---
 
-## Run
-
-```bash
-# from agents/
-go run .            # default port 8082
-go run . -port 9000 # custom port
-```
-
-On startup you'll see the chosen backend and the registered tools:
-
-```text
-[LLM] Backend: Ollama (gemma4:e4b)
-[MCP] Registered MCP tool (LLM will discover resources dynamically)
-[MAIN] Tool registry: 3 tools
-Agent server listening on http://localhost:8082
-```
-
----
-
 ## API
 
 ### `POST /api/agent/query`
@@ -175,4 +148,4 @@ Response:
 { "answer": "..." }
 ```
 
-The agent reasons over its tools (PDF search → web search → MCP DB tools) and returns the final answer once the ReAct loop produces a `Final Answer`. A web UI is served at `http://localhost:8082`.
+A web UI is served at `http://localhost:8082`.
