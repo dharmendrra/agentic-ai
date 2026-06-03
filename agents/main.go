@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -24,10 +25,12 @@ type Config struct {
 	MaxRetries      int    `json:"MAX_RETRIES"`
 	MaxTokens       int    `json:"MAX_TOKENS"`
 	SearchEndpoint  string `json:"SEARCH_ENDPOINT"`
+	MCPServerURL    string `json:"MCP_SERVER_URL"`
 }
 
 var cfg Config
 var toolMgr *tools.Manager
+var mcpToolsDesc string // populated at startup from tools/list
 
 func min(a, b int) int {
 	if a < b {
@@ -115,54 +118,40 @@ func callOllama(prompt string) (string, error) {
 
 func runReAct(userQuery string) (string, error) {
 	log.Printf("[AGENT] Starting ReAct loop for query: %s", userQuery)
-	systemPrompt := `You are a helpful assistant with access to two tools for researching answers.
+	// Build the list of available tool names for the Action line
+	toolNames := make([]string, 0, len(toolMgr.ListTools()))
+	for name := range toolMgr.ListTools() {
+		toolNames = append(toolNames, name)
+	}
+
+	dbSection := ""
+	if mcpToolsDesc != "" {
+		dbSection = "\nDB TOOLS (via MCP server — input must be a JSON object):\n" + mcpToolsDesc
+	}
+
+	systemPrompt := fmt.Sprintf(`You are a helpful assistant with access to tools for research and database management.
 
 AVAILABLE TOOLS:
-1. search_pdf - PRIMARY SOURCE
-   - Searches the user's PDF documents (ground truth, primary source)
-   - Use this FIRST for any factual questions
-   - Returns direct excerpts from ingested PDFs
-
-2. web_search - FALLBACK SOURCE
-   - Searches the internet for additional information
-   - Use when PDF search returns no results or insufficient information
-   - Complements PDF results with broader knowledge
-
+1. search_pdf - Searches the user's PDF documents. Use this FIRST for factual questions.
+2. web_search - Searches the internet. Use as fallback when PDF has no results.
+%s
 REASONING FORMAT (ReAct):
 You MUST follow this exact format for each reasoning step:
 
 Thought: [your reasoning about what to do next]
-Action: search_pdf OR web_search
-Action Input: [search query for the tool]
+Action: %s
+Action Input: [plain text query for search tools | JSON object for DB tools]
 Observation: [result from the tool]
 
-CRITICAL LOGIC:
-1. ALWAYS try search_pdf FIRST
-2. If you see "[PDF_EMPTY]" in the observation:
-   - DO NOT return Final Answer yet
-   - MUST try web_search as fallback
-   - Provide answer from web_search
-3. If you see "[PDF_SUCCESS]" in the observation:
-   - You have PDF sources
-   - If the sources actually answer the query: Provide Final Answer
-   - If sources are irrelevant or don't contain the answer:
-     * Do NOT try to answer from irrelevant sources
-     * MUST try web_search as fallback
-     * Example: Query about "Harry Potter" but sources are about AI/ML
-   - Test: Do the source chunks mention keywords from the query?
-     * Yes → Use PDF answer
-     * No → Try web_search
+When you have sufficient information:
+Final Answer: [your complete answer]
 
-When you have sufficient information from either tool:
-Final Answer: [your complete answer based on observations]
-
-IMPORTANT RULES:
-- Each step must follow Thought-Action-Observation format exactly
-- Empty PDF results = MUST try web_search (don't skip this step)
-- "No information found" = MUST try web_search
-- Never provide Final Answer until you've checked both tools (unless one is conclusive)
-- Never make up tool names or actions
-- Maximum 10 steps allowed`
+RULES:
+- Follow Thought-Action-Observation format exactly
+- DB tool inputs must be valid JSON objects
+- Search tool inputs are plain text
+- Never invent tool names — only use the ones listed above
+- Maximum %d steps allowed`, dbSection, strings.Join(toolNames, " | "), cfg.MaxSteps)
 
 	state := &ReActState{
 		Steps:  0,
@@ -298,10 +287,32 @@ func main() {
 		log.Fatalf("static directory not found: %v", err)
 	}
 
-	// Initialize tool manager
+	// Initialize tool manager with static tools
 	toolMgr = tools.NewManager()
 	toolMgr.Register(tools.NewPDFSearchTool(cfg.SearchEndpoint, cfg.MaxRetries))
 	toolMgr.Register(tools.NewWebSearchTool(cfg.TavilyAPIKey, cfg.MaxRetries))
+
+	// Connect to MCP server and discover tools via tools/list
+	mcpURL := cfg.MCPServerURL
+	if mcpURL == "" {
+		mcpURL = "http://localhost:8083"
+	}
+	mcpClient, err := tools.Connect(context.Background(), mcpURL)
+	if err != nil {
+		log.Printf("[MCP] WARNING: Could not connect to MCP server at %s: %v (DB tools unavailable)", mcpURL, err)
+	} else {
+		discovered, desc, err := mcpClient.DiscoverTools(context.Background())
+		if err != nil {
+			log.Printf("[MCP] WARNING: tools/list failed: %v", err)
+		} else {
+			for _, t := range discovered {
+				toolMgr.Register(t)
+			}
+			mcpToolsDesc = desc
+			log.Printf("[MCP] Discovered %d tools from %s", len(discovered), mcpURL)
+		}
+	}
+
 	log.Printf("[MAIN] Tool manager initialized with %d tools", len(toolMgr.ListTools()))
 
 	// API endpoints
