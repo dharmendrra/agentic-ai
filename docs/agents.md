@@ -140,7 +140,7 @@ cp config.example.json config.json
 
 Request:
 ```json
-{ "query": "What job portals do I have saved in my database?" }
+{ "query": "What information do I have stored in my database?" }
 ```
 
 Response:

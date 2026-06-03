@@ -167,7 +167,7 @@ Agent server listening on http://localhost:8082
 
 Request:
 ```json
-{ "query": "What job portals do I have saved in my database?" }
+{ "query": "What information do I have stored in my database?" }
 ```
 
 Response:

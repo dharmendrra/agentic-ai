@@ -2,6 +2,8 @@
 
 A standalone [Model Context Protocol](https://modelcontextprotocol.io) server written in Go that exposes a MongoDB database as MCP tools. Any MCP-compatible client (Claude Desktop, Cursor, custom agents) can connect to it.
 
+The server is **general-purpose**: it stores whatever you want. The tools operate on any collection and any document shape — nothing is hardcoded to a particular schema. The collections listed below are just the example data currently in this database.
+
 ---
 
 ## Flow
@@ -167,7 +169,9 @@ The server speaks standard MCP over SSE — no custom headers or auth required.
 
 ---
 
-## Collections
+## Example Collections
+
+These are the collections currently in this database — illustrative examples, not a fixed schema. Add any collection you like and the same tools work unchanged.
 
 | Collection | Documents | Schema |
 |---|---|---|

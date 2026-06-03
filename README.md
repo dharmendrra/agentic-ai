@@ -125,7 +125,7 @@ cd agents && go run .
 # 5. Query the agent
 curl -X POST http://localhost:8082/api/agent/query \
   -H "Content-Type: application/json" \
-  -d '{"query": "Show me all free job portals"}'
+  -d '{"query": "What is stored in my database?"}'
 ```
 
 > **Config & secrets:** `config.json` is gitignored in both modules because it contains API keys. Commit only `config.example.json` with placeholder values.

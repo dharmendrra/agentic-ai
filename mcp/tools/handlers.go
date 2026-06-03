@@ -32,7 +32,7 @@ func (h *Handlers) Register(s *server.MCPServer) {
 
 	s.AddTool(mcp.NewTool("query_documents",
 		mcp.WithDescription("Query documents from a collection. Filter is an optional JSON object (e.g. {\"Status\":\"To Do\"}). Returns up to `limit` documents."),
-		mcp.WithString("collection", mcp.Required(), mcp.Description("Collection name: learning_todo, links_tracker, or job_portals")),
+		mcp.WithString("collection", mcp.Required(), mcp.Description("Name of the collection to query. Call list_collections first to see what exists.")),
 		mcp.WithString("filter", mcp.Description("Optional JSON filter object, e.g. {\"Status\":\"To Do\"}")),
 		mcp.WithNumber("limit", mcp.Description("Max documents to return (default 20)")),
 	), h.queryDocuments)

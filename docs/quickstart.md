@@ -79,7 +79,7 @@ cd agents && go run .
 ```bash
 curl -X POST http://localhost:8082/api/agent/query \
   -H "Content-Type: application/json" \
-  -d '{"query": "Show me all free job portals"}'
+  -d '{"query": "What is stored in my database?"}'
 ```
 
 Or open the web UI at [http://localhost:8082](http://localhost:8082).
