@@ -85,6 +85,12 @@ go run .
 
 ## Configuration
 
+Copy the example to create your local config (`config.json` is gitignored):
+
+```bash
+cp config.example.json config.json
+```
+
 `config.json`:
 ```json
 {
