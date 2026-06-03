@@ -32,14 +32,23 @@ func NewPDFSearchTool(endpoint string, maxRetries int) *PDFSearchTool {
 	}
 }
 
-// Name returns the tool name
-func (t *PDFSearchTool) Name() string {
-	return "search_pdf"
-}
+func (t *PDFSearchTool) Name() string { return "search_pdf" }
 
-// Description returns the tool description
-func (t *PDFSearchTool) Description() string {
-	return "Search the user's PDF documents. Use this FIRST for any factual questions. Returns direct excerpts from ingested PDFs."
+func (t *PDFSearchTool) Schema() ToolSchema {
+	return ToolSchema{
+		Name:        "search_pdf",
+		Description: "Search the user's PDF documents. Use this FIRST for any factual questions. Returns direct excerpts from ingested PDFs.",
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"query": map[string]any{
+					"type":        "string",
+					"description": "The search query to find relevant content in PDFs",
+				},
+			},
+			"required": []string{"query"},
+		},
+	}
 }
 
 // Execute runs the PDF search

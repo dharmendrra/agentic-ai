@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/mark3labs/mcp-go/client"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -36,30 +35,22 @@ func Connect(ctx context.Context, serverURL string) (*MCPClient, error) {
 	return &MCPClient{cli: c}, nil
 }
 
-// DiscoverTools calls tools/list on the server and returns:
-//   - a slice of Tool (ready to Register on a Manager)
-//   - a formatted description string for the LLM system prompt
-func (m *MCPClient) DiscoverTools(ctx context.Context) ([]Tool, string, error) {
+// DiscoverTools calls tools/list and returns a slice of Tool ready to Register.
+// Each tool carries its full schema from the server — no separate description string needed.
+func (m *MCPClient) DiscoverTools(ctx context.Context) ([]Tool, error) {
 	result, err := m.cli.ListTools(ctx, mcp.ListToolsRequest{})
 	if err != nil {
-		return nil, "", fmt.Errorf("tools/list: %w", err)
+		return nil, fmt.Errorf("tools/list: %w", err)
 	}
 
-	var tools []Tool
-	var sb strings.Builder
-
+	tools := make([]Tool, 0, len(result.Tools))
 	for _, t := range result.Tools {
 		tools = append(tools, &mcpToolCall{
-			toolName: t.Name,
-			client:   m,
+			client: m,
+			schema: mcpToolToSchema(t),
 		})
-		sb.WriteString(fmt.Sprintf("- %s: %s\n", t.Name, t.Description))
-		if props := inputSchemaProps(t); props != "" {
-			sb.WriteString(fmt.Sprintf("  Input: %s\n", props))
-		}
 	}
-
-	return tools, sb.String(), nil
+	return tools, nil
 }
 
 // Call invokes a named tool on the MCP server with JSON-encoded arguments.
@@ -87,15 +78,15 @@ func (m *MCPClient) Call(ctx context.Context, toolName, inputJSON string) (strin
 
 // mcpToolCall implements the Tool interface for a single MCP server tool.
 type mcpToolCall struct {
-	toolName string
-	client   *MCPClient
+	schema ToolSchema
+	client *MCPClient
 }
 
-func (t *mcpToolCall) Name() string        { return t.toolName }
-func (t *mcpToolCall) Description() string { return "" } // description comes from server via DiscoverTools
+func (t *mcpToolCall) Name() string        { return t.schema.Name }
+func (t *mcpToolCall) Schema() ToolSchema  { return t.schema }
 
 func (t *mcpToolCall) Execute(input string) (string, error) {
-	return t.client.Call(context.Background(), t.toolName, input)
+	return t.client.Call(context.Background(), t.schema.Name, input)
 }
 
 // extractText pulls the first TextContent out of a tool result.
@@ -108,38 +99,14 @@ func extractText(content []mcp.Content) string {
 	return ""
 }
 
-// inputSchemaProps formats the required properties of a tool's input schema
-// into a compact one-line description for the system prompt.
-func inputSchemaProps(t mcp.Tool) string {
-	data, err := json.Marshal(t.InputSchema)
-	if err != nil {
-		return ""
+// mcpToolToSchema converts an mcp.Tool definition to the standard ToolSchema.
+func mcpToolToSchema(t mcp.Tool) ToolSchema {
+	data, _ := json.Marshal(t.InputSchema)
+	var inputSchema map[string]any
+	json.Unmarshal(data, &inputSchema)
+	return ToolSchema{
+		Name:        t.Name,
+		Description: t.Description,
+		InputSchema: inputSchema,
 	}
-	var schema struct {
-		Properties map[string]struct {
-			Type        string `json:"type"`
-			Description string `json:"description"`
-		} `json:"properties"`
-		Required []string `json:"required"`
-	}
-	if err := json.Unmarshal(data, &schema); err != nil || len(schema.Properties) == 0 {
-		return ""
-	}
-
-	var parts []string
-	for name, prop := range schema.Properties {
-		required := false
-		for _, r := range schema.Required {
-			if r == name {
-				required = true
-				break
-			}
-		}
-		req := ""
-		if required {
-			req = "*"
-		}
-		parts = append(parts, fmt.Sprintf("%s%s(%s)", req, name, prop.Type))
-	}
-	return strings.Join(parts, ", ")
 }

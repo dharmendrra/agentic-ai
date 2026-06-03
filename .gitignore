@@ -11,5 +11,6 @@ agentic-ai
 *.temp
 .DS_Store
 
-# Config (local overrides)
+# Config (contains API keys — never commit)
+config.json
 config.local.json

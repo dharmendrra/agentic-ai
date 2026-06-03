@@ -31,14 +31,23 @@ func NewWebSearchTool(apiKey string, maxRetries int) *WebSearchTool {
 	}
 }
 
-// Name returns the tool name
-func (t *WebSearchTool) Name() string {
-	return "web_search"
-}
+func (t *WebSearchTool) Name() string { return "web_search" }
 
-// Description returns the tool description
-func (t *WebSearchTool) Description() string {
-	return "Search the internet. Use only if PDF search doesn't return relevant results. Provides additional context or verification."
+func (t *WebSearchTool) Schema() ToolSchema {
+	return ToolSchema{
+		Name:        "web_search",
+		Description: "Search the internet. Use only if PDF search doesn't return relevant results. Provides additional context or verification.",
+		InputSchema: map[string]any{
+			"type": "object",
+			"properties": map[string]any{
+				"query": map[string]any{
+					"type":        "string",
+					"description": "The search query to find information on the internet",
+				},
+			},
+			"required": []string{"query"},
+		},
+	}
 }
 
 // Execute runs the web search
