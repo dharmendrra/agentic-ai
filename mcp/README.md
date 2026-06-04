@@ -51,9 +51,9 @@ graph TD
 
     subgraph MongoDB
         H[(agentic_mcps)]
-        I[learning_todo]
-        J[links_tracker]
-        K[job_portals]
+        I[collection A]
+        J[collection B]
+        K[collection C]
     end
 
     A -->|MCP over SSE| E

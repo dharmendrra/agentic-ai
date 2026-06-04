@@ -31,9 +31,9 @@ graph TD
         subgraph mcp
             M[MCP Server<br/>:8083 / SSE]
             DB[(MongoDB<br/>agentic_mcps)]
-            C1[learning_todo]
-            C2[links_tracker]
-            C3[job_portals]
+            C1[collection A]
+            C2[collection B]
+            C3[collection C]
         end
     end
 
