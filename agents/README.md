@@ -4,6 +4,10 @@ An LLM-powered [ReAct](https://arxiv.org/abs/2210.03629) (Reason + Act) agent wr
 
 The LLM backend is pluggable: it runs on local **Ollama** by default and switches to **Anthropic Claude** when configured — with no code change.
 
+<p align="center">
+  <img src="./architecture.png" alt="agents — ReAct agent, tool registry, and three tool sources reaching their targets" width="860">
+</p>
+
 ---
 
 ## ReAct Loop

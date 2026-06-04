@@ -35,38 +35,9 @@ sequenceDiagram
 
 ## Architecture
 
-```mermaid
-graph TD
-    subgraph Clients
-        A[Claude Desktop]
-        B[Cursor]
-        C[Custom Agent]
-    end
-
-    subgraph MCP Server :8083
-        E[SSE Transport<br/>GET /sse]
-        F[Message Handler<br/>POST /message]
-        G[Tool Registry<br/>list_collections<br/>query_documents<br/>insert_document<br/>update_document<br/>delete_document]
-    end
-
-    subgraph MongoDB
-        H[(agentic_mcps)]
-        I[collection A]
-        J[collection B]
-        K[collection C]
-    end
-
-    A -->|MCP over SSE| E
-    B -->|MCP over SSE| E
-    C -->|MCP over SSE| E
-
-    E --> F
-    F --> G
-    G -->|CRUD| H
-    H --> I
-    H --> J
-    H --> K
-```
+<p align="center">
+  <img src="./architecture.png" alt="MongoDB MCP server — clients over SSE, tools discovered via tools/list, CRUD on MongoDB" width="860">
+</p>
 
 ---
 
