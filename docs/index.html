@@ -182,6 +182,7 @@
       <a href="#modules">Modules</a>
       <a href="#architecture">Architecture</a>
       <a href="#tools">Tools</a>
+      <a href="#diagrams">Diagrams</a>
       <a class="nav-cta" href="https://github.com/dharmendrra/agentic-ai" target="_blank" rel="noopener">View on GitHub</a>
     </nav>
   </div>
@@ -372,8 +373,32 @@
   </div>
 </section>
 
+<!-- ===================== DIAGRAMS GALLERY ===================== -->
+<section id="diagrams">
+  <div class="wrap">
+    <div class="eyebrow">Module architecture</div>
+    <h2>The two services, up close</h2>
+    <p class="lead">Two decoupled Go modules, each with its own data-flow: the ReAct agent that reasons and calls tools, and the standalone MongoDB MCP server it discovers them from.</p>
+
+    <div class="grid grid-2">
+      <figure class="figure" style="margin-top:0;">
+        <div class="figure-frame">
+          <img src="diagrams/agents.png" alt="agents module data-flow diagram" />
+          <figcaption><strong>agents/</strong> — ReAct agent + tool registry → <code>search_pdf</code> · <code>web_search</code> · <code>mcp</code></figcaption>
+        </div>
+      </figure>
+      <figure class="figure" style="margin-top:0;">
+        <div class="figure-frame">
+          <img src="diagrams/mcp.png" alt="mcp module data-flow diagram" />
+          <figcaption><strong>mcp/</strong> — clients over SSE → MCP server → MongoDB; tools discovered via <code>tools/list</code></figcaption>
+        </div>
+      </figure>
+    </div>
+  </div>
+</section>
+
 <!-- ===================== STACK ===================== -->
-<section id="stack">
+<section id="stack" class="section-alt">
   <div class="wrap">
     <div class="eyebrow">Engineering surface area</div>
     <h2>Technology stack</h2>
