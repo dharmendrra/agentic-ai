@@ -1,34 +1,28 @@
 package tools
 
 import (
-	"bufio"
-	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
 	"strings"
 	"time"
 )
 
-// PDFSearchConfig holds configuration for PDF search tool
-type PDFSearchConfig struct {
-	Endpoint  string
-	MaxRetries int
-}
-
-// PDFSearchTool searches PDF documents
+// PDFSearchTool searches PDF documents via native Pinecone vector search.
+// Replaces the old SSE-endpoint proxy — see PLAN §2A.
 type PDFSearchTool struct {
-	config PDFSearchConfig
+	embedder *OllamaEmbedder
+	querier  *PineconeQuerier
+	catalog  *BooksCatalog // may be nil if Mongo is unavailable
 }
 
-// NewPDFSearchTool creates a new PDF search tool
-func NewPDFSearchTool(endpoint string, maxRetries int) *PDFSearchTool {
+// NewPDFSearchTool creates a native PDF search tool.
+func NewPDFSearchTool(embedder *OllamaEmbedder, querier *PineconeQuerier, catalog *BooksCatalog) *PDFSearchTool {
 	return &PDFSearchTool{
-		config: PDFSearchConfig{
-			Endpoint:   endpoint,
-			MaxRetries: maxRetries,
-		},
+		embedder: embedder,
+		querier:  querier,
+		catalog:  catalog,
 	}
 }
 
@@ -37,7 +31,7 @@ func (t *PDFSearchTool) Name() string { return "search_pdf" }
 func (t *PDFSearchTool) Schema() ToolSchema {
 	return ToolSchema{
 		Name:        "search_pdf",
-		Description: "Search the user's PDF documents. Use this FIRST for any factual questions. Returns direct excerpts from ingested PDFs.",
+		Description: "Search the user's PDF book library via semantic vector search. Returns direct excerpts from ingested PDFs. If the user names a specific book, pass it in the 'book' field to narrow results.",
 		InputSchema: map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -45,127 +39,130 @@ func (t *PDFSearchTool) Schema() ToolSchema {
 					"type":        "string",
 					"description": "The search query to find relevant content in PDFs",
 				},
+				"book": map[string]any{
+					"type":        "string",
+					"description": "Optional book title to narrow the search to a specific book",
+				},
 			},
 			"required": []string{"query"},
 		},
 	}
 }
 
-// Execute runs the PDF search
-func (t *PDFSearchTool) Execute(query string) (string, error) {
-	log.Printf("[TOOL] search_pdf: Querying PDF endpoint with: '%s'", query)
-	body := map[string]string{"query": query}
-	bodyBytes, _ := json.Marshal(body)
+// pdfInput parses the LLM's Action Input (plain text for query-only, or JSON
+// when the LLM passes a book field).
+type pdfInput struct {
+	Query string `json:"query"`
+	Book  string `json:"book"`
+}
 
-	var result string
-	for attempt := 0; attempt < t.config.MaxRetries; attempt++ {
-		log.Printf("[TOOL] search_pdf: Attempt %d/%d to %s", attempt+1, t.config.MaxRetries, t.config.Endpoint)
-		resp, err := http.Post(t.config.Endpoint, "application/json", bytes.NewReader(bodyBytes))
+func parsePDFInput(raw string) pdfInput {
+	raw = strings.TrimSpace(raw)
+
+	// Try JSON first (LLM may send {"query":"...", "book":"..."}).
+	var inp pdfInput
+	if json.Unmarshal([]byte(raw), &inp) == nil && inp.Query != "" {
+		return inp
+	}
+	// Fall back to plain text (just the query).
+	return pdfInput{Query: raw}
+}
+
+// Execute runs the native PDF search. input is either plain-text query or JSON
+// {"query": "...", "book": "..."}.
+func (t *PDFSearchTool) Execute(input string) (string, error) {
+	inp := parsePDFInput(input)
+	log.Printf("[TOOL] search_pdf: query=%q book=%q", inp.Query, inp.Book)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// --- Book-title narrowing (PLAN §2A) ---
+	var filter map[string]any
+	var resolvedTitle string
+	if inp.Book != "" && t.catalog != nil {
+		matches, err := t.catalog.ResolveTitle(ctx, inp.Book)
 		if err != nil {
-			log.Printf("[TOOL] search_pdf: Connection error on attempt %d: %v", attempt+1, err)
-			if attempt < t.config.MaxRetries-1 {
-				time.Sleep(time.Second * time.Duration(attempt+1))
-				continue
-			}
-			return "", fmt.Errorf("search_pdf failed after %d retries: %v", t.config.MaxRetries, err)
-		}
-		defer resp.Body.Close()
-
-		log.Printf("[TOOL] search_pdf: Got status %d", resp.StatusCode)
-		if resp.StatusCode != http.StatusOK {
-			if attempt < t.config.MaxRetries-1 {
-				log.Printf("[TOOL] search_pdf: Retrying after status %d...", resp.StatusCode)
-				time.Sleep(time.Second * time.Duration(attempt+1))
-				continue
-			}
-			return "", fmt.Errorf("search_pdf returned status %d", resp.StatusCode)
-		}
-
-		// Parse SSE stream
-		log.Printf("[TOOL] search_pdf: Parsing SSE stream response")
-		scanner := bufio.NewScanner(resp.Body)
-		var chunks []string
-		var foundError bool
-
-		for scanner.Scan() {
-			line := scanner.Text()
-
-			// Check for error event (means no results found by Pinecone)
-			if strings.HasPrefix(line, "event: error") {
-				foundError = true
-				log.Printf("[TOOL] search_pdf: Found error event in stream - no results from Pinecone")
-				// Read the data line
-				if scanner.Scan() {
-					dataLine := scanner.Text()
-					if strings.HasPrefix(dataLine, "data: ") {
-						jsonStr := strings.TrimPrefix(dataLine, "data: ")
-						var errEvent struct {
-							Stage   string `json:"stage"`
-							Message string `json:"message"`
-						}
-						if err := json.Unmarshal([]byte(jsonStr), &errEvent); err == nil {
-							log.Printf("[TOOL] search_pdf: Endpoint error - %s: %s", errEvent.Stage, errEvent.Message)
-						}
-					}
+			log.Printf("[TOOL] search_pdf: catalog lookup error: %v", err)
+			// Fall through to unfiltered search.
+		} else if len(matches) > 0 {
+			// Group by canonical title: the same book may have several
+			// source_file_ids (re-ingested copies). One distinct title → treat as
+			// a single book and filter by $in over all its ids. Multiple distinct
+			// titles → genuinely ambiguous → clarify-back.
+			byTitle := map[string][]string{}
+			var order []string
+			for _, b := range matches {
+				key := strings.ToLower(strings.TrimSpace(b.Title))
+				if _, ok := byTitle[key]; !ok {
+					order = append(order, b.Title)
 				}
-				break // Stream ends after error
+				byTitle[key] = append(byTitle[key], b.ID)
 			}
-
-			// Look for "event: sources" to extract chunks
-			if strings.HasPrefix(line, "event: sources") {
-				// Next line should be "data: ..."
-				if scanner.Scan() {
-					dataLine := scanner.Text()
-					if strings.HasPrefix(dataLine, "data: ") {
-						jsonStr := strings.TrimPrefix(dataLine, "data: ")
-
-						var sourcesResp struct {
-							Sources []struct {
-								TextContent string `json:"text_content"`
-							} `json:"sources"`
-						}
-
-						if err := json.Unmarshal([]byte(jsonStr), &sourcesResp); err != nil {
-							log.Printf("[TOOL] search_pdf: Error parsing sources event: %v", err)
-							continue
-						}
-
-						for _, source := range sourcesResp.Sources {
-							if source.TextContent != "" {
-								chunks = append(chunks, source.TextContent)
-							}
-						}
-
-						log.Printf("[TOOL] search_pdf: Extracted %d chunks from SSE stream", len(chunks))
-					}
-				}
+			if len(byTitle) == 1 {
+				resolvedTitle = order[0]
+				ids := byTitle[strings.ToLower(strings.TrimSpace(resolvedTitle))]
+				log.Printf("[TOOL] search_pdf: narrowing to book %q (%d file id(s))", resolvedTitle, len(ids))
+				filter = map[string]any{"source_file_id": map[string]any{"$in": ids}}
+			} else {
+				log.Printf("[TOOL] search_pdf: %d distinct titles for %q - needs clarification", len(byTitle), inp.Book)
+				return fmt.Sprintf("[NEEDS_CLARIFICATION|Multiple books match '%s': %s]", inp.Book, strings.Join(order, ", ")), nil
 			}
+		} else {
+			log.Printf("[TOOL] search_pdf: no book match for %q - searching all", inp.Book)
 		}
-
-		// Decision: Check what happened
-		if foundError {
-			log.Printf("[TOOL] search_pdf: EMPTY - error event means Pinecone found no matching vectors")
-			return "[PDF_EMPTY|No matching documents found in PDF]", nil
-		}
-
-		if len(chunks) == 0 {
-			log.Printf("[TOOL] search_pdf: EMPTY - no chunks extracted from sources")
-			return "[PDF_EMPTY|No matching documents found in PDF]", nil
-		}
-
-		if err := scanner.Err(); err != nil {
-			log.Printf("[TOOL] search_pdf: Error reading stream: %v", err)
-			return "", fmt.Errorf("search_pdf: stream read error: %v", err)
-		}
-
-		if len(chunks) > 0 {
-			result = strings.Join(chunks, "\n---\n")
-			log.Printf("[TOOL] search_pdf: SUCCESS - returning %d chunks", len(chunks))
-			return fmt.Sprintf("[PDF_SUCCESS|Found %d matching chunks]\n%s", len(chunks), result), nil
-		}
-		break
 	}
 
-	log.Printf("[TOOL] search_pdf: EMPTY - no chunks found in PDF")
-	return "[PDF_EMPTY|No matching documents found in PDF]", nil
+	// --- Embed the query ---
+	log.Printf("[TOOL] search_pdf: generating embedding via Ollama")
+	vector, err := t.embedder.Embed(ctx, inp.Query)
+	if err != nil {
+		return "", fmt.Errorf("search_pdf: embed query: %w", err)
+	}
+	log.Printf("[TOOL] search_pdf: got %d-dim embedding", len(vector))
+
+	// --- Query Pinecone ---
+	log.Printf("[TOOL] search_pdf: querying Pinecone (topK=%d, filtered=%v)", t.querier.TopK, filter != nil)
+	sources, err := t.querier.Query(ctx, vector, filter)
+	if err != nil {
+		return "", fmt.Errorf("search_pdf: pinecone query: %w", err)
+	}
+
+	if len(sources) == 0 {
+		log.Printf("[TOOL] search_pdf: EMPTY - no matching vectors")
+		return "[PDF_EMPTY|No matching documents found in PDF library]", nil
+	}
+
+	// --- Format results ---
+	var chunks []string
+	for _, src := range sources {
+		if src.TextContent == "" {
+			continue
+		}
+		book := firstNonEmpty(src.BookTitle, resolvedTitle, src.SourceFileID)
+		if book != "" {
+			chunks = append(chunks, fmt.Sprintf("[book: %s] %s", book, src.TextContent))
+		} else {
+			chunks = append(chunks, src.TextContent)
+		}
+	}
+
+	if len(chunks) == 0 {
+		log.Printf("[TOOL] search_pdf: EMPTY - all chunks were empty text")
+		return "[PDF_EMPTY|No matching documents found in PDF library]", nil
+	}
+
+	result := strings.Join(chunks, "\n---\n")
+	log.Printf("[TOOL] search_pdf: SUCCESS - returning %d chunks", len(chunks))
+	return fmt.Sprintf("[PDF_SUCCESS|Found %d matching chunks]\n%s", len(chunks), result), nil
+}
+
+// firstNonEmpty returns the first non-blank string from vals, or "".
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if strings.TrimSpace(v) != "" {
+			return v
+		}
+	}
+	return ""
 }

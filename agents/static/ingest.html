@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Your Library Knowledge Base — Agentic AI (Golang)</title>
+    <meta name="description" content="Add PDF books to My Library: extract, chunk, embed, and index into Pinecone." />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = { darkMode: "class", theme: { extend: { boxShadow: { glow: "0 0 40px rgba(16, 185, 129, 0.12)" } } } };
+    </script>
+  </head>
+  <body class="flex min-h-screen flex-col bg-slate-950 text-slate-100 antialiased">
+    <!-- ─── Shared top bar (IDENTICAL on chat + ingest) ─────────────────────── -->
+    <header class="flex flex-shrink-0 items-center justify-between border-b border-slate-800 bg-slate-950/80 px-6 py-5">
+      <div class="flex items-baseline gap-3">
+        <span class="text-[1.35rem] font-semibold tracking-tight text-white">Agentic AI <span class="text-slate-500">(Golang)</span></span>
+        <span class="hidden text-[1.05rem] text-slate-400 md:inline">Your Library Knowledge Base <span class="text-slate-600">· + web search and conversations</span></span>
+      </div>
+      <nav class="flex items-center gap-2">
+        <a href="/" class="flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-[1.05rem] font-medium text-slate-200 transition hover:border-emerald-500 hover:text-emerald-400">
+          <!-- lucide: message-square -->
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          Chat
+        </a>
+        <a href="/ingest.html" class="flex items-center gap-2 rounded-lg border border-emerald-500 bg-emerald-500/10 px-3 py-2 text-[1.05rem] font-medium text-emerald-400">
+          <!-- lucide: upload -->
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+          Ingest
+        </a>
+      </nav>
+    </header>
+
+    <main class="mx-auto w-full max-w-3xl flex-1 px-5 py-8 sm:px-8">
+      <h2 class="mb-1 text-lg font-semibold text-white">Add a book to your library</h2>
+      <p class="mb-6 text-sm leading-6 text-slate-400">
+        Upload a PDF — it's extracted, chunked, embedded with Ollama, and indexed into Pinecone, so the agent can
+        cite it when you turn on <span class="text-emerald-400">My Library</span>. Name a book to enable
+        per-book narrowing in chat.
+      </p>
+
+      <!-- Upload card -->
+      <section class="rounded-2xl border border-slate-800 bg-slate-900/50 p-6 shadow-glow">
+        <div id="drop" class="cursor-pointer rounded-xl border-2 border-dashed border-slate-700 bg-slate-950/40 p-10 text-center transition hover:border-emerald-500">
+          <svg class="mx-auto text-emerald-400" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+          <p class="mt-3 text-sm font-medium text-slate-200">Drag &amp; drop a PDF here</p>
+          <p class="mt-1 text-xs text-slate-500">or click to browse</p>
+          <p id="filename" class="mt-3 text-xs font-medium text-emerald-400"></p>
+          <input id="file" type="file" accept="application/pdf" class="hidden" />
+        </div>
+
+        <input id="title" type="text" placeholder="Book title (optional — defaults to filename)"
+               class="mt-4 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm text-white placeholder-slate-500 transition hover:border-emerald-500" />
+
+        <div class="mt-4 flex items-center justify-between">
+          <span class="text-xs text-slate-500">PDF only · up to ~100 MB</span>
+          <button id="submit" class="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-500 disabled:opacity-50">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+            Upload &amp; Ingest
+          </button>
+        </div>
+
+        <pre id="status" class="mt-4 hidden max-h-48 overflow-auto whitespace-pre-wrap rounded-xl bg-slate-950 p-3 font-mono text-xs leading-5 text-slate-300"></pre>
+      </section>
+    </main>
+
+    <script src="/ingest.js"></script>
+  </body>
+</html>

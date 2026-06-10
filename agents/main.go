@@ -11,7 +11,13 @@ import (
 	"github.com/user/agentic-ai/tools"
 )
 
-var toolMgr *tools.Manager
+// Base tool instances. Per request, react.go assembles an active subset of
+// these based on the source toggles (see buildActiveToolSet).
+var (
+	pdfTool *tools.PDFSearchTool
+	webTool *tools.WebSearchTool
+	mcpTool *tools.MCPTool
+)
 
 func main() {
 	port := flag.String("port", "8082", "Port to listen on")
@@ -31,10 +37,28 @@ func main() {
 		log.Printf("[LLM] Backend: Ollama (%s)", cfg.OllamaModel)
 	}
 
-	// Initialize tool registry
-	toolMgr = tools.NewManager()
-	toolMgr.Register(tools.NewPDFSearchTool(cfg.SearchEndpoint, cfg.MaxRetries))
-	toolMgr.Register(tools.NewWebSearchTool(cfg.TavilyAPIKey, cfg.MaxRetries))
+	// Connect conversation store (direct Mongo driver). Degrades gracefully.
+	initStore()
+
+	// Build base tool instances. react.go assembles the active subset per request.
+	// Native PDF search (PLAN §2A): embed via Ollama, query Pinecone directly,
+	// narrow by book via the Mongo `books` catalog. Degrades gracefully.
+	embedder := tools.NewOllamaEmbedder(cfg.OllamaHost, cfg.EmbeddingModel)
+	querier := tools.NewPineconeQuerier(cfg.PineconeAPIKey, cfg.PineconeHost, cfg.PineconeNS, cfg.RetrievalTopK)
+	var catalog *tools.BooksCatalog
+	if c, _, cErr := tools.ConnectBooksCatalog(cfg.MongoURI, cfg.MongoDB); cErr != nil {
+		log.Printf("[CATALOG] WARNING: books catalog unavailable: %v (book-title narrowing disabled)", cErr)
+	} else {
+		catalog = c
+		log.Printf("[CATALOG] Connected books catalog (db=%s)", cfg.MongoDB)
+	}
+	pdfTool = tools.NewPDFSearchTool(embedder, querier, catalog)
+	webTool = tools.NewWebSearchTool(cfg.TavilyAPIKey, cfg.MaxRetries)
+
+	// Ingestion shares the same embedder/querier/catalog (PLAN §2A).
+	ingestEmbedder = embedder
+	ingestQuerier = querier
+	ingestCatalog = catalog
 
 	// Connect to MCP server (LLM will discover tools dynamically via action: "list_tools")
 	mcpURL := cfg.MCPServerURL
@@ -45,13 +69,14 @@ func main() {
 	if err != nil {
 		log.Printf("[MCP] WARNING: Could not connect to MCP server at %s: %v (MCP tool unavailable)", mcpURL, err)
 	} else {
-		toolMgr.Register(tools.NewMCPTool(mcpClient))
+		mcpTool = tools.NewMCPTool(mcpClient)
 		log.Printf("[MCP] Registered MCP tool (LLM will discover resources dynamically)")
 	}
 
-	log.Printf("[MAIN] Tool registry: %d tools", len(toolMgr.ListTools()))
-
 	http.HandleFunc("/api/agent/query", handleAgentQuery)
+	http.HandleFunc("/api/ingest", handleIngest)
+	http.HandleFunc("/api/conversations", handleConversations)
+	http.HandleFunc("/api/conversations/", handleConversationByID)
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
 			http.ServeFile(w, r, filepath.Join(staticDir, "index.html"))

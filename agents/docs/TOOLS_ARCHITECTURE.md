@@ -321,12 +321,44 @@ Action: calculate
 Action Input: 5 + 3 * 2
 ```
 
+## Per-request tool gating (Your Library Knowledge Base)
+
+As of the conversational-retrieval work, the agent no longer uses a single global
+`Manager`. Instead `react.go` assembles an **active tool set per request** based on
+the source toggles (`use_web`, `use_library`) sent by the UI. See PLAN §4.5 and
+`docs/API_ENDPOINTS.md`.
+
+| Toggle state | Active tools |
+|---|---|
+| (always) | `recall_history` — read-only conversation memory (when Mongo is up) |
+| `use_library` on | + `search_pdf` (Pinecone) + `mcp` (MongoDB CRUD) |
+| `use_web` on | + `web_search` (Tavily) |
+| both off | only `recall_history` — model answers from its own knowledge |
+
+`buildActiveToolSet(convID, useWeb, useLibrary)` builds a fresh `tools.Manager`
+holding only the gated tools; `buildSystemPrompt(...)` branches the instructions by
+toggle state (including the clarify-back rule when My Library is on).
+
+### Memory is not a knowledge source
+`recall_history` (`tools/recall_history.go`) is **always** offered when a conversation
+store exists, regardless of toggles. It is read-only and conversation-scoped: the
+backend builds it per request, closing over the current `conversation_id` via
+`history_provider.go`, so the model can never read another conversation or
+write/delete. See `docs/RECALL_HISTORY_TOOL.md`.
+
+### Tool observations are transient
+Inside one ReAct turn, tool observations (Pinecone chunks, web text) are used and then
+**discarded** — only the final answer is persisted to `messages`. Memory replay uses
+the budgeted summary + last-K turns, never raw observations. See PLAN §6 and
+`docs/CONVERSATION_STORAGE_FORMAT.md`.
+
 ## Design Decisions
 
 | Decision | Reason |
 |----------|--------|
-| Standard library only (`net/http`, `encoding/json`) | No dependency management, easy to deploy as a single binary |
-| Stateless service | Each request is fully independent — scales horizontally without session state |
+| Standard library + Mongo driver | Mongo driver only for deterministic conversation persistence (not the model's MCP tool) |
+| Per-request tool gating | User chooses sources via toggles; keeps prompts tight and respects safety (MCP CRUD only with My Library) |
+| Stateful conversations, stateless turns | History lives in Mongo; each turn rebuilds budgeted context — no in-process session state |
 | External `config.json` | Config changes don't require a recompile |
 | Regex-based ReAct parser | Handles LLM output variations; gracefully falls through on parse errors |
-| 2-tool surface | Minimal tool set keeps system prompt tight and tool selection predictable |
+| `len/4` token heuristic | Budget context without a tokenizer dependency |

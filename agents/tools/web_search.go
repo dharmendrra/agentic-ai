@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -58,13 +59,19 @@ func (t *WebSearchTool) Execute(query string) (string, error) {
 	}
 
 	log.Printf("[TOOL] web_search: Querying Tavily API with: '%s'", query)
-	tavilyURL := fmt.Sprintf("https://api.tavily.com/search?api_key=%s&query=%s&max_results=3",
-		t.config.APIKey, strings.ReplaceAll(query, " ", "%20"))
+	// Tavily requires POST with the key in the JSON body; the old GET ?api_key=
+	// form now returns 401.
+	reqBody, _ := json.Marshal(map[string]any{
+		"api_key":        t.config.APIKey,
+		"query":          query,
+		"max_results":    3,
+		"include_answer": true,
+	})
 
 	var result string
 	for attempt := 0; attempt < t.config.MaxRetries; attempt++ {
 		log.Printf("[TOOL] web_search: Attempt %d/%d", attempt+1, t.config.MaxRetries)
-		resp, err := http.Get(tavilyURL)
+		resp, err := http.Post("https://api.tavily.com/search", "application/json", bytes.NewReader(reqBody))
 		if err != nil {
 			log.Printf("[TOOL] web_search: Connection error on attempt %d: %v", attempt+1, err)
 			if attempt < t.config.MaxRetries-1 {
@@ -91,18 +98,41 @@ func (t *WebSearchTool) Execute(query string) (string, error) {
 		}
 
 		var tavilyResp struct {
-			Answer string `json:"answer"`
+			Answer  string `json:"answer"`
+			Results []struct {
+				Title string `json:"title"`
+				URL   string `json:"url"`
+			} `json:"results"`
 		}
 		if err := json.Unmarshal(respBody, &tavilyResp); err != nil {
 			return "", err
 		}
 
 		result = tavilyResp.Answer
+		if result == "" && len(tavilyResp.Results) > 0 {
+			result = tavilyResp.Results[0].Title
+		}
+		// Append a machine-readable sources marker that react.go strips out and
+		// turns into clickable citations (the LLM never needs to render it).
+		var parts []string
+		for _, r := range tavilyResp.Results {
+			if r.URL == "" {
+				continue
+			}
+			parts = append(parts, strings.TrimSpace(r.Title)+" :: "+r.URL)
+		}
+		if len(parts) > 0 {
+			result += "\n\n" + WebSrcMarker + strings.Join(parts, " || ")
+		}
 		break
 	}
 
-	if result == "" {
+	if strings.TrimSpace(result) == "" {
 		return "No web results found", nil
 	}
 	return result, nil
 }
+
+// WebSrcMarker prefixes the machine-readable web sources line appended to a
+// web_search observation. react.go parses + strips it (see splitWebCitations).
+const WebSrcMarker = "[[WEBSRC]]"
