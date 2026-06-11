@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>agentic-ai — Local ReAct Agent + MongoDB MCP in Go</title>
+<meta name="description" content="A local agentic AI system in Go: an LLM-powered ReAct agent that reasons over PDFs, the web, and MongoDB — wired together via the Model Context Protocol (MCP), with dynamic runtime tool discovery and a dual Ollama/Claude backend." />
+
+<meta property="og:title" content="agentic-ai — Local ReAct Agent + MongoDB MCP in Go" />
+<meta property="og:description" content="ReAct agent + standalone MongoDB MCP server. Dynamic tool discovery over MCP. Runs fully local on Ollama, switches to Claude with zero code change." />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://dharmendrra.github.io/agentic-ai/" />
+<meta property="og:image" content="https://dharmendrra.github.io/agentic-ai/og-cover.png" />
+<meta property="og:image:width" content="2400" />
+<meta property="og:image:height" content="1260" />
+<meta property="og:image:alt" content="agentic-ai data-flow diagram — a ReAct agent calling search_pdf, web_search, and an mcp umbrella tool that reaches a MongoDB MCP server over SSE." />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="agentic-ai — Local ReAct Agent + MongoDB MCP in Go" />
+<meta name="twitter:description" content="ReAct agent + standalone MongoDB MCP server. Dynamic tool discovery over MCP. Runs local on Ollama, switches to Claude with zero code change." />
+<meta name="twitter:image" content="https://dharmendrra.github.io/agentic-ai/og-cover.png" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg-alt: #f6f8fb;
+    --bg-soft: #eef2f7;
+    --text: #0f172a;
+    --text-muted: #475569;
+    --text-faint: #64748b;
+    --border: #e2e8f0;
+    --accent: #2563eb;
+    --accent-dark: #1d4ed8;
+    --accent-soft: #dbeafe;
+    --green: #16a34a;
+    --radius: 14px;
+    --shadow: 0 1px 2px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.06);
+    --maxw: 1080px;
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: var(--text);
+    background: var(--bg);
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
+  section { padding: 72px 0; }
+  .section-alt { background: var(--bg-alt); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+
+  h1, h2, h3 { line-height: 1.2; letter-spacing: -0.02em; margin: 0 0 .4em; }
+  h2 { font-size: clamp(1.6rem, 3vw, 2.1rem); font-weight: 700; }
+  .eyebrow { text-transform: uppercase; letter-spacing: .12em; font-size: .78rem; font-weight: 600; color: var(--accent); margin-bottom: 10px; }
+  .lead { font-size: 1.12rem; color: var(--text-muted); max-width: 720px; }
+
+  /* ---------- Nav ---------- */
+  header.nav {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(255,255,255,.82);
+    backdrop-filter: saturate(180%) blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 62px; }
+  .brand { font-weight: 800; font-size: 1.1rem; letter-spacing: -0.02em; }
+  .brand span { color: var(--accent); }
+  .nav-links { display: flex; gap: 26px; align-items: center; }
+  .nav-links a { color: var(--text-muted); font-weight: 500; font-size: .94rem; }
+  .nav-links a:hover { color: var(--accent); text-decoration: none; }
+  .nav-cta { background: var(--accent); color: #fff !important; padding: 8px 16px; border-radius: 8px; font-weight: 600; }
+  .nav-cta:hover { background: var(--accent-dark); text-decoration: none; }
+  @media (max-width: 720px) { .nav-links a:not(.nav-cta) { display: none; } }
+
+  /* ---------- Hero ---------- */
+  .hero { padding: 84px 0 64px; background: linear-gradient(180deg, var(--bg-soft) 0%, var(--bg) 100%); }
+  .hero h1 { font-size: clamp(2.3rem, 6vw, 3.6rem); font-weight: 800; }
+  .hero h1 .accent { color: var(--accent); }
+  .hero .tagline { font-size: 1.2rem; color: var(--text-muted); max-width: 700px; margin-top: 8px; }
+  .hero-badges { display: flex; flex-wrap: wrap; gap: 10px; margin: 26px 0; }
+  .pill { background: #fff; border: 1px solid var(--border); padding: 6px 14px; border-radius: 999px; font-size: .85rem; font-weight: 500; color: var(--text-muted); box-shadow: var(--shadow); }
+  .pill strong { color: var(--text); }
+  .hero-cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 22px; border-radius: 10px; font-weight: 600; font-size: .96rem; transition: .15s; }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent-dark); text-decoration: none; }
+  .btn-ghost { background: #fff; color: var(--text); border: 1px solid var(--border); }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+
+  /* ---------- Author strip ---------- */
+  .author { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-top: 40px; padding-top: 28px; border-top: 1px solid var(--border); }
+  .author .who { font-weight: 700; }
+  .author .role { color: var(--text-faint); font-size: .92rem; }
+  .author-links { display: flex; gap: 18px; margin-left: auto; }
+  .author-links a { font-weight: 500; font-size: .92rem; }
+
+  /* ---------- Stats ---------- */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+  @media (max-width: 720px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+  .stat { text-align: center; }
+  .stat .num { font-size: 2.2rem; font-weight: 800; color: var(--accent); letter-spacing: -0.03em; }
+  .stat .label { color: var(--text-faint); font-size: .9rem; margin-top: 2px; }
+
+  /* ---------- Cards grid ---------- */
+  .grid { display: grid; gap: 22px; margin-top: 38px; }
+  .grid-2 { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 760px) { .grid-2 { grid-template-columns: 1fr; } }
+  .card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 26px; box-shadow: var(--shadow); transition: .18s; }
+  .card:hover { transform: translateY(-3px); border-color: #cbd5e1; box-shadow: 0 10px 30px rgba(15,23,42,.10); }
+  .card h3 { font-size: 1.22rem; display: flex; align-items: center; gap: 10px; }
+  .card .badge { font-size: .72rem; font-weight: 600; padding: 3px 9px; border-radius: 6px; background: var(--accent-soft); color: var(--accent-dark); letter-spacing: .02em; }
+  .card p { color: var(--text-muted); font-size: .96rem; margin: 0 0 14px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag { font-size: .76rem; font-family: 'JetBrains Mono', monospace; background: var(--bg-soft); color: var(--text-faint); padding: 3px 9px; border-radius: 6px; }
+  .card .more { display: inline-block; margin-top: 16px; font-weight: 600; font-size: .9rem; }
+
+  /* ---------- Feature list ---------- */
+  .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; margin-top: 38px; }
+  @media (max-width: 860px) { .features { grid-template-columns: 1fr; } }
+  .feature h3 { font-size: 1.08rem; }
+  .feature .ic { width: 42px; height: 42px; border-radius: 10px; background: var(--accent-soft); color: var(--accent-dark); display: grid; place-items: center; font-size: 1.3rem; margin-bottom: 14px; }
+  .feature p { color: var(--text-muted); font-size: .95rem; margin: 0; }
+
+  /* ---------- Code block ---------- */
+  pre { background: #0f172a; color: #e2e8f0; border-radius: var(--radius); padding: 22px 24px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: .85rem; line-height: 1.7; box-shadow: var(--shadow); }
+  pre .c { color: #64748b; }
+  pre .k { color: #7dd3fc; }
+  pre .s { color: #86efac; }
+
+  /* ---------- Figure / diagram ---------- */
+  .figure { margin: 34px 0 0; }
+  .figure-frame { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 22px; box-shadow: var(--shadow); text-align: center; }
+  .figure img { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+  .figure figcaption { color: var(--text-faint); font-size: .86rem; margin-top: 12px; }
+  .sub { font-size: 1.25rem; font-weight: 700; margin: 52px 0 0; letter-spacing: -0.02em; }
+
+  /* ---------- Table ---------- */
+  .tbl { width: 100%; border-collapse: collapse; margin-top: 38px; background: #fff; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
+  .tbl th, .tbl td { text-align: left; padding: 13px 18px; border-bottom: 1px solid var(--border); font-size: .94rem; }
+  .tbl th { background: var(--bg-soft); font-weight: 600; color: var(--text); font-size: .82rem; text-transform: uppercase; letter-spacing: .04em; }
+  .tbl tr:last-child td { border-bottom: none; }
+  .tbl td code { font-size: .85rem; background: var(--bg-soft); padding: 2px 7px; border-radius: 5px; color: var(--accent-dark); }
+  .tbl td.muted { color: var(--text-faint); }
+
+  /* ---------- Stack ---------- */
+  .stack { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 32px; }
+  .chip { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 10px 16px; font-weight: 500; font-size: .92rem; display: flex; align-items: center; gap: 8px; box-shadow: var(--shadow); }
+  .chip b { color: var(--accent); }
+
+  /* ---------- CTA band ---------- */
+  .band { background: var(--accent); color: #fff; border-radius: 18px; padding: 50px 40px; text-align: center; margin-top: 10px; }
+  .band h2 { color: #fff; }
+  .band p { color: #dbeafe; max-width: 560px; margin: 0 auto 24px; }
+  .band .btn-white { background: #fff; color: var(--accent); }
+  .band .btn-white:hover { background: #f1f5f9; text-decoration: none; }
+  .band .btn-outline { border: 1px solid rgba(255,255,255,.5); color: #fff; }
+  .band .btn-outline:hover { background: rgba(255,255,255,.12); text-decoration: none; }
+
+  /* ---------- Footer ---------- */
+  footer { padding: 40px 0; border-top: 1px solid var(--border); color: var(--text-faint); font-size: .9rem; }
+  .foot-inner { display: flex; flex-wrap: wrap; gap: 14px; justify-content: space-between; align-items: center; }
+  .foot-links { display: flex; gap: 20px; }
+
+  /* Image lightbox */
+  .zoomable { cursor: zoom-in; }
+  .lightbox { position: fixed; inset: 0; z-index: 1000; display: none; align-items: center; justify-content: center; padding: 24px; background: rgba(10,12,16,0.92); -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); touch-action: none; }
+  .lightbox.is-open { display: flex; }
+  .lightbox__img { max-width: 95vw; max-height: 90vh; object-fit: contain; border-radius: 8px; box-shadow: 0 24px 70px rgba(0,0,0,0.55); transform-origin: center center; touch-action: none; cursor: grab; will-change: transform; user-select: none; -webkit-user-drag: none; }
+  .lightbox__close { position: fixed; top: 18px; right: 22px; width: 44px; height: 44px; border-radius: 50%; border: none; background: rgba(255,255,255,0.14); color: #fff; font-size: 28px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s ease, transform 0.15s ease; }
+  .lightbox__close:hover { background: rgba(255,255,255,0.28); transform: scale(1.05); }
+  .lightbox__nav { position: fixed; top: 50%; transform: translateY(-50%); width: 48px; height: 48px; border-radius: 50%; border: none; background: rgba(255,255,255,0.14); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.15s ease; z-index: 1; }
+  .lightbox__nav:hover { background: rgba(255,255,255,0.28); }
+  .lightbox__nav--prev { left: 22px; }
+  .lightbox__nav--next { right: 22px; }
+  @media (max-width: 600px) { .lightbox__nav { width: 40px; height: 40px; } .lightbox__nav--prev { left: 10px; } .lightbox__nav--next { right: 10px; } }
+  .lightbox__hint { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); color: rgba(255,255,255,0.6); font-size: 0.78rem; letter-spacing: 0.02em; pointer-events: none; text-align: center; padding: 0 16px; }
+</style>
+</head>
+<body>
+
+<!-- ===================== NAV ===================== -->
+<header class="nav">
+  <div class="wrap nav-inner">
+    <div class="brand">agentic<span>-ai</span></div>
+    <nav class="nav-links">
+      <a href="#overview">Overview</a>
+      <a href="#video">Video</a>
+      <a href="#in-action">In action</a>
+      <a href="#modules">Modules</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#tools">Tools</a>
+      <a href="#diagrams">Diagrams</a>
+      <a class="nav-cta" href="https://github.com/dharmendrra/agentic-ai" target="_blank" rel="noopener">View on GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ===================== HERO ===================== -->
+<section class="hero">
+  <div class="wrap">
+    <div class="eyebrow">Local Agentic AI · ReAct + Model Context Protocol · Built in Go</div>
+    <h1>An agent that <span class="accent">discovers its own tools</span> at runtime.</h1>
+    <p class="tagline">A local-first agentic AI system in Go: an LLM-powered ReAct agent that reasons over PDFs, the web, and a MongoDB database — wired together through the Model Context Protocol. It runs fully local on Ollama by default and switches to Anthropic Claude with zero code change.</p>
+
+    <div class="hero-badges">
+      <span class="pill">ReAct <strong>reasoning loop</strong></span>
+      <span class="pill">Dynamic <strong>tool discovery</strong> via MCP</span>
+      <span class="pill">Dual backend · <strong>Ollama / Claude</strong></span>
+      <span class="pill">Standalone <strong>MongoDB MCP server</strong></span>
+    </div>
+
+    <div class="hero-cta">
+      <a class="btn btn-primary" href="https://github.com/dharmendrra/agentic-ai" target="_blank" rel="noopener">⭐ Explore the code</a>
+      <a class="btn btn-ghost" href="#architecture">See how it works →</a>
+    </div>
+
+    <div class="author">
+      <div>
+        <div class="who">Dharmendra Yadav</div>
+        <div class="role">Sr. Lead Engineer / Engineering Manager · Agentic AI Architect · Team Leadership &amp; Delivery · AI-Augmented Product Engineering</div>
+      </div>
+      <div class="author-links">
+        <a href="https://www.linkedin.com/in/dharmendra-yadav-20b9a017/" target="_blank" rel="noopener">LinkedIn</a>
+        <a href="https://github.com/dharmendrra" target="_blank" rel="noopener">GitHub</a>
+        <a href="mailto:dharmendra.4real@gmail.com">Email</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== STATS ===================== -->
+<section class="section-alt" style="padding:48px 0;">
+  <div class="wrap">
+    <div class="stats">
+      <div class="stat"><div class="num">Go</div><div class="label">Single-language stack</div></div>
+      <div class="stat"><div class="num">2</div><div class="label">Independent services</div></div>
+      <div class="stat"><div class="num">5</div><div class="label">MongoDB ops over MCP</div></div>
+      <div class="stat"><div class="num">Local-first</div><div class="label">Ollama default · Claude optional</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== VIDEO ===================== -->
+<section id="video">
+  <div class="wrap">
+    <div class="eyebrow">Video overview</div>
+    <h2>Decoding agentic AI</h2>
+    <p class="lead">A short walkthrough of the ideas behind this project — the ReAct reasoning loop, the Model Context Protocol, and why the agent discovers its tools at runtime instead of hardcoding them.</p>
+
+    <figure class="figure">
+      <div class="figure-frame">
+        <div style="position:relative; width:100%; padding-top:56.25%;">
+          <iframe style="position:absolute; inset:0; width:100%; height:100%; border:0; border-radius:8px;"
+            src="https://www.youtube.com/embed/OcOF1qCRXlQ"
+            title="Decoding Agentic AI"
+            loading="lazy"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            referrerpolicy="strict-origin-when-cross-origin"
+            allowfullscreen></iframe>
+        </div>
+        <figcaption>Decoding Agentic AI — ReAct, MCP, and runtime tool discovery, explained.</figcaption>
+      </div>
+    </figure>
+  </div>
+</section>
+
+<!-- ===================== IN ACTION ===================== -->
+<section id="in-action">
+  <div class="wrap">
+    <div class="eyebrow">Live UI</div>
+    <h2>The agent in action</h2>
+    <p class="lead">Ask a complex question and watch the ReAct loop work — the agent interleaves reasoning with tool calls across PDF retrieval and live web search, deciding when it has enough context to answer, and when to ask for more.</p>
+
+    <div class="grid grid-2">
+      <figure class="figure" style="margin-top:0;">
+        <div class="figure-frame">
+          <img src="screenshots/judgment.png" alt="Agent recognizes a vague query and asks clarifying questions instead of hallucinating" loading="lazy" />
+          <figcaption><strong>Sound judgment</strong> — asks for context on vague queries instead of hallucinating</figcaption>
+        </div>
+      </figure>
+      <figure class="figure" style="margin-top:0;">
+        <div class="figure-frame">
+          <img src="screenshots/answer.png" alt="Agent produces a structured multi-step answer grounded via PDF and web tools" loading="lazy" />
+          <figcaption><strong>Grounded answer</strong> — multi-step ReAct reasoning, grounded via PDF + web tools</figcaption>
+        </div>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== OVERVIEW ===================== -->
+<section id="overview">
+  <div class="wrap">
+    <div class="eyebrow">What it is</div>
+    <h2>A ReAct agent that treats its toolbox as a protocol, not a hardcode</h2>
+    <p class="lead">Most agents wire each capability in by hand. agentic-ai instead exposes its database as a standard MCP server and gives the agent a single <code>mcp</code> tool — the agent learns what that server can do at query time via <code>tools/list</code>. Add a capability to the server and the agent picks it up with no code change.</p>
+
+    <div class="features">
+      <div class="feature">
+        <div class="ic">🔁</div>
+        <h3>ReAct reasoning loop</h3>
+        <p>Reason → Plan → Act → Observe → repeat. The agent thinks, picks an action, executes a tool, reads the observation, and iterates until it has a grounded final answer.</p>
+      </div>
+      <div class="feature">
+        <div class="ic">🔍</div>
+        <h3>Dynamic tool discovery</h3>
+        <p>The agent holds a single <code>mcp</code> umbrella tool and discovers concrete operations at runtime via the standard MCP <code>tools/list</code> action — no per-operation pre-registration.</p>
+      </div>
+      <div class="feature">
+        <div class="ic">🔌</div>
+        <h3>Dual LLM backend</h3>
+        <p>Local Ollama by default; Anthropic Claude when an API key, model, and credit balance are all configured. Both implement one <code>LLMCaller</code> interface — swap with config, not code.</p>
+      </div>
+      <div class="feature">
+        <div class="ic">📐</div>
+        <h3>Tool schema registry</h3>
+        <p>Every tool owns its full definition (<code>name</code>, <code>description</code>, <code>input_schema</code>) through a <code>Schema()</code> method. The registry compiles these into the system prompt — descriptions live in exactly one place.</p>
+      </div>
+      <div class="feature">
+        <div class="ic">🧩</div>
+        <h3>Standard MCP, no coupling</h3>
+        <p>The MongoDB server speaks plain MCP over SSE. Any compatible client — Claude Desktop, Cursor, or a custom agent — connects with no special headers or auth.</p>
+      </div>
+      <div class="feature">
+        <div class="ic">🗂️</div>
+        <h3>Multi-source grounding</h3>
+        <p>Beyond the database, the agent reasons over local PDF vector search and live web results via the Tavily API — choosing the right source per step.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== MODULES ===================== -->
+<section id="modules" class="section-alt">
+  <div class="wrap">
+    <div class="eyebrow">Two independent services</div>
+    <h2>Modules</h2>
+    <p class="lead">The system is two decoupled Go services wired together over MCP — the agent (the brain and tools) and a standalone, general-purpose MongoDB MCP server.</p>
+
+    <div class="grid grid-2">
+      <div class="card">
+        <h3>🧠 agents/ <span class="badge">ReAct agent · :8082</span></h3>
+        <p>The reasoning core. On startup it connects to the MCP server, discovers available DB operations, and builds its system prompt dynamically from each tool's own schema. Runs the ReAct loop against Ollama or Claude and serves a query API + UI.</p>
+        <div class="tags">
+          <span class="tag">Go</span><span class="tag">ReAct</span><span class="tag">Ollama</span><span class="tag">Anthropic Claude</span><span class="tag">PDF search</span><span class="tag">Tavily</span>
+        </div>
+        <a class="more" href="https://github.com/dharmendrra/agentic-ai/tree/main/agents" target="_blank" rel="noopener">Browse agents/ →</a>
+      </div>
+
+      <div class="card">
+        <h3>🗄️ mcp/ <span class="badge">MCP server · :8083 / SSE</span></h3>
+        <p>A standalone Model Context Protocol server exposing a MongoDB database as MCP tools over HTTP/SSE. General-purpose — the CRUD tools operate on any collection and any document shape, nothing hardcoded to a schema. Connect any MCP client, agent-agnostic.</p>
+        <div class="tags">
+          <span class="tag">Go</span><span class="tag">MCP</span><span class="tag">MongoDB</span><span class="tag">SSE</span><span class="tag">Claude Desktop</span><span class="tag">Cursor</span>
+        </div>
+        <a class="more" href="https://github.com/dharmendrra/agentic-ai/tree/main/mcp" target="_blank" rel="noopener">Browse mcp/ →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== ARCHITECTURE ===================== -->
+<section id="architecture">
+  <div class="wrap">
+    <div class="eyebrow">System design</div>
+    <h2>How it all fits together</h2>
+    <p class="lead">Two decoupled Go services and a pluggable LLM brain, joined by an open protocol. The agent reasons; the MCP server exposes data as discoverable tools; nothing is hardcoded between them.</p>
+
+    <figure class="figure">
+      <div class="figure-frame">
+        <img src="diagrams/architecture.png" alt="agentic-ai system architecture: ReAct agent on port 8082 calling search_pdf, web_search, and a single mcp umbrella tool that connects over MCP/SSE to the MongoDB MCP server on port 8083, which performs CRUD against the agentic_mcps database. A pluggable LLM backend (Claude or Ollama) drives the ReAct loop." />
+        <figcaption>System data-flow — ReAct agent, three tool sources, and a standalone MongoDB MCP server over SSE.</figcaption>
+      </div>
+    </figure>
+
+    <h3 class="sub">The ReAct loop, end to end</h3>
+    <p class="lead" style="margin-top:8px;">A single endpoint runs the full reason → act → observe cycle, discovering and calling tools over MCP until the LLM produces a grounded final answer.</p>
+
+    <figure class="figure">
+      <div class="figure-frame">
+        <img src="diagrams/react-sequence.png" alt="ReAct loop sequence diagram: the user posts a query to the agent, which initializes and lists tools from the MCP server, then loops through Thought, Action, tool execution (local search_pdf/web_search or MCP tools/call to MongoDB), and Observation, before returning a final JSON answer." />
+        <figcaption>Request lifecycle — discovery via <code>tools/list</code>, then iterative Thought → Action → Observation until the final answer.</figcaption>
+      </div>
+    </figure>
+
+    <div class="grid grid-2" style="margin-top:40px;">
+      <div class="card">
+        <h3>Agent side</h3>
+        <p>Embeds the query in a dynamically-built ReAct prompt, selects the LLM backend from config, and orchestrates tool calls. It knows MCP only as a black box — one <code>mcp</code> tool whose operations it discovers, never hardcodes.</p>
+      </div>
+      <div class="card">
+        <h3>MCP server side</h3>
+        <p>Opens an SSE stream, advertises its tool catalog via <code>tools/list</code>, and executes <code>tools/call</code> requests as MongoDB CRUD against the <code>agentic_mcps</code> database — returning structured <code>CallToolResult</code> payloads.</p>
+      </div>
+    </div>
+
+    <h3 style="margin-top:48px;">Service ports</h3>
+    <table class="tbl">
+      <thead><tr><th>Service</th><th>Port</th><th>Endpoint</th></tr></thead>
+      <tbody>
+        <tr><td>ReAct agent</td><td><code>8082</code></td><td><code>POST /api/agent/query</code> · UI at <code>/</code></td></tr>
+        <tr><td>MCP server</td><td><code>8083</code></td><td>SSE at <code>/sse</code></td></tr>
+        <tr><td class="muted">PDF search (external)</td><td><code>8081</code></td><td><code>POST /api/search</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ===================== TOOLS ===================== -->
+<section id="tools" class="section-alt">
+  <div class="wrap">
+    <div class="eyebrow">The agent's capabilities</div>
+    <h2>Tools &amp; data operations</h2>
+    <p class="lead">Three tool sources feed the agent — two local, one discovered over MCP. The MongoDB operations below are advertised by the server at runtime and work against any collection.</p>
+
+    <table class="tbl">
+      <thead><tr><th>Tool / Operation</th><th>Source</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>search_pdf</code></td><td>Local</td><td>Vector search over PDF documents</td></tr>
+        <tr><td><code>web_search</code></td><td>Tavily API</td><td>Live web search for fresh information</td></tr>
+        <tr><td><code>list_collections</code></td><td class="muted">MCP · discovered</td><td>List all collections with document counts</td></tr>
+        <tr><td><code>query_documents</code></td><td class="muted">MCP · discovered</td><td>Query documents with an optional filter</td></tr>
+        <tr><td><code>insert_document</code></td><td class="muted">MCP · discovered</td><td>Insert a new document</td></tr>
+        <tr><td><code>update_document</code></td><td class="muted">MCP · discovered</td><td>Update matching documents</td></tr>
+        <tr><td><code>delete_document</code></td><td class="muted">MCP · discovered</td><td>Delete matching documents</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ===================== DIAGRAMS GALLERY ===================== -->
+<section id="diagrams">
+  <div class="wrap">
+    <div class="eyebrow">Module architecture</div>
+    <h2>The two services, up close</h2>
+    <p class="lead">Two decoupled Go modules, each with its own data-flow: the ReAct agent that reasons and calls tools, and the standalone MongoDB MCP server it discovers them from.</p>
+
+    <div class="grid grid-2">
+      <figure class="figure" style="margin-top:0;">
+        <div class="figure-frame">
+          <img src="diagrams/agents.png" alt="agents module data-flow diagram" />
+          <figcaption><strong>agents/</strong> — ReAct agent + tool registry → <code>search_pdf</code> · <code>web_search</code> · <code>mcp</code></figcaption>
+        </div>
+      </figure>
+      <figure class="figure" style="margin-top:0;">
+        <div class="figure-frame">
+          <img src="diagrams/mcp.png" alt="mcp module data-flow diagram" />
+          <figcaption><strong>mcp/</strong> — clients over SSE → MCP server → MongoDB; tools discovered via <code>tools/list</code></figcaption>
+        </div>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== STACK ===================== -->
+<section id="stack" class="section-alt">
+  <div class="wrap">
+    <div class="eyebrow">Engineering surface area</div>
+    <h2>Technology stack</h2>
+    <p class="lead">A Go-centric, local-first stack built around an open protocol — portable across LLM backends and MCP clients.</p>
+    <div class="stack">
+      <span class="chip"><b>●</b> Go 1.21+</span>
+      <span class="chip"><b>●</b> Model Context Protocol</span>
+      <span class="chip"><b>●</b> MongoDB</span>
+      <span class="chip"><b>●</b> Ollama (local LLM)</span>
+      <span class="chip"><b>●</b> Anthropic Claude</span>
+      <span class="chip"><b>●</b> ReAct prompting</span>
+      <span class="chip"><b>●</b> Server-Sent Events</span>
+      <span class="chip"><b>●</b> Tavily web search</span>
+      <span class="chip"><b>●</b> PDF vector search</span>
+      <span class="chip"><b>●</b> JSON-RPC tool calls</span>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== CTA BAND ===================== -->
+<section style="padding-bottom:80px;">
+  <div class="wrap">
+    <div class="band">
+      <h2>Dig into the engineering</h2>
+      <p>Full Go source, per-module READMEs, MCP client setup for Claude Desktop &amp; Cursor, and architecture diagrams live in the repository.</p>
+      <div class="hero-cta" style="justify-content:center;">
+        <a class="btn btn-white" href="https://github.com/dharmendrra/agentic-ai" target="_blank" rel="noopener">View agentic-ai on GitHub</a>
+        <a class="btn btn-outline" href="mailto:dharmendra.4real@gmail.com">Get in touch</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== FOOTER ===================== -->
+<footer>
+  <div class="wrap foot-inner">
+    <div>© <span id="year"></span> Dharmendra Yadav · agentic-ai · MIT License</div>
+    <div class="foot-links">
+      <a href="https://github.com/dharmendrra/agentic-ai" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://www.linkedin.com/in/dharmendra-yadav-20b9a017/" target="_blank" rel="noopener">LinkedIn</a>
+      <a href="mailto:dharmendra.4real@gmail.com">Email</a>
+    </div>
+  </div>
+</footer>
+
+<script>document.getElementById('year').textContent = new Date().getFullYear();</script>
+<script src="lightbox.js"></script>
+</body>
+</html>

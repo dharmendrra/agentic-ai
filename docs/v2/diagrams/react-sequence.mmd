@@ -1,0 +1,28 @@
+sequenceDiagram
+    autonumber
+    participant U as User
+    participant A as ReAct Agent :8082
+    participant L as LLM · Claude / Ollama
+    participant M as MCP Server :8083
+    participant DB as MongoDB
+
+    U->>A: POST /api/agent/query
+    A->>M: initialize + tools/list
+    M-->>A: available tool schemas
+
+    loop ReAct steps
+        A->>L: Thought prompt
+        L-->>A: Action + Action Input
+        alt local tool
+            A->>A: search_pdf / web_search
+        else mcp tool
+            A->>M: tools/call
+            M->>DB: CRUD
+            DB-->>M: result
+            M-->>A: CallToolResult
+        end
+        A->>L: Observation
+    end
+
+    L-->>A: Final Answer
+    A-->>U: JSON response

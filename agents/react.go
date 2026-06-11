@@ -244,13 +244,18 @@ func runReAct(convID, userQuery string, useWeb, useLibrary bool) (answer string,
 			break
 		}
 
-		// Plain-LLM mode: with no retrieval tools enabled there is nothing to
-		// iterate on, so a direct response (no tool Action) IS the answer — accept
-		// it instead of looping to MaxSteps. Weak local models often answer
-		// without the "Final Answer:" prefix. See PLAN §4.5 (no-tools branch).
-		if !useWeb && !useLibrary && !strings.Contains(response, "Action:") {
-			log.Printf("[AGENT] No tools active and no Action - treating response as final answer")
-			state.Answer = strings.TrimSpace(response)
+		// No tool call this step → the model has produced its answer (weak models
+		// often skip the "Final Answer:" prefix, or ramble after already gathering
+		// tool results). Accept it as the answer instead of looping to MaxSteps.
+		if !strings.Contains(response, "Action:") {
+			log.Printf("[AGENT] No Action in response - treating it as the final answer")
+			ans := strings.TrimSpace(response)
+			if strings.HasPrefix(ans, "Thought:") {
+				if i := strings.Index(ans, "\n"); i >= 0 {
+					ans = strings.TrimSpace(ans[i+1:])
+				}
+			}
+			state.Answer = ans
 			break
 		}
 

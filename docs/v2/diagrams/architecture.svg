@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="700" viewBox="0 0 1240 700" font-family="Inter, 'Segoe UI', sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#2563eb"/>
+    </marker>
+    <marker id="arrowback" markerWidth="9" markerHeight="9" refX="1" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M8,0 L0,3 L8,6 Z" fill="#2563eb"/>
+    </marker>
+    <style>
+      .store{ fill:#fef9c3; stroke:#ca8a04; stroke-width:2px; }
+      .svc  { fill:#dbeafe; stroke:#2563eb; stroke-width:2px; }
+      .vec  { fill:#ede9fe; stroke:#7c3aed; stroke-width:2px; }
+      .llm  { fill:#dcfce7; stroke:#16a34a; stroke-width:2px; }
+      .ui   { fill:#ffffff; stroke:#94a3b8; stroke-width:1.6px; }
+      .ext  { fill:#f1f5f9; stroke:#64748b; stroke-width:1.6px; }
+      .title{ font-size:23px; font-weight:700; fill:#0f172a; }
+      .mono { font-size:21px; font-weight:600; fill:#0f172a; font-family:'JetBrains Mono', ui-monospace, monospace; }
+      .sub  { font-size:18px; fill:#475569; }
+      .edge { stroke:#2563eb; stroke-width:2.5px; fill:none; }
+      .lbl  { font-size:17px; fill:#334155; paint-order:stroke; stroke:#ffffff; stroke-width:6px; stroke-linejoin:round; }
+      .phase{ font-size:19px; font-weight:700; fill:#94a3b8; }
+    </style>
+  </defs>
+
+  <!-- ================= EDGES ================= -->
+  <!-- LLM <-> Agent ReAct loop (double headed) -->
+  <path class="edge" d="M180,300 L180,168" marker-start="url(#arrowback)" marker-end="url(#arrow)"/>
+  <!-- Agent -> tools (fan out) -->
+  <path class="edge" d="M300,332 C385,322 402,150 466,114" marker-end="url(#arrow)"/>
+  <path class="edge" d="M300,362 L466,362" marker-end="url(#arrow)"/>
+  <path class="edge" d="M300,392 C385,402 402,560 466,586" marker-end="url(#arrow)"/>
+  <!-- tools -> externals -->
+  <path class="edge" d="M672,112 L772,112" marker-end="url(#arrow)"/>
+  <path class="edge" d="M672,362 L772,362" marker-end="url(#arrow)"/>
+  <path class="edge" d="M672,588 L772,588" marker-end="url(#arrow)"/>
+  <!-- MCP server -> MongoDB -->
+  <path class="edge" d="M992,588 L1058,588" marker-end="url(#arrow)"/>
+
+  <!-- edge labels -->
+  <text class="lbl" x="118" y="240" text-anchor="middle">ReAct</text>
+  <text class="lbl" x="118" y="262" text-anchor="middle">loop</text>
+  <text class="lbl" x="722" y="100" text-anchor="middle">search</text>
+  <text class="lbl" x="722" y="350" text-anchor="middle">query</text>
+  <text class="lbl" x="722" y="568" text-anchor="middle">MCP · SSE</text>
+  <text class="lbl" x="722" y="676" text-anchor="middle">tools/list · tools/call</text>
+  <text class="lbl" x="1025" y="576" text-anchor="middle">CRUD</text>
+
+  <!-- ================= NODES ================= -->
+  <!-- LLM backend -->
+  <rect class="llm" x="60" y="72" width="240" height="96" rx="12"/>
+  <text class="title" x="180" y="113" text-anchor="middle">LLM Backend</text>
+  <text class="sub"   x="180" y="140" text-anchor="middle">Claude · Ollama</text>
+
+  <!-- ReAct agent -->
+  <rect class="svc" x="60" y="300" width="240" height="120" rx="12"/>
+  <text class="title" x="180" y="350" text-anchor="middle">ReAct Agent</text>
+  <text class="sub"   x="180" y="378" text-anchor="middle">:8082</text>
+
+  <!-- tools column -->
+  <rect class="ui" x="466" y="77" width="206" height="70" rx="11"/>
+  <text class="mono" x="569" y="119" text-anchor="middle">search_pdf</text>
+
+  <rect class="ui" x="466" y="327" width="206" height="70" rx="11"/>
+  <text class="mono" x="569" y="369" text-anchor="middle">web_search</text>
+
+  <rect class="ui" x="466" y="548" width="206" height="82" rx="11"/>
+  <text class="mono"  x="569" y="582" text-anchor="middle">mcp</text>
+  <text class="sub"   x="569" y="607" text-anchor="middle">umbrella tool</text>
+
+  <!-- externals column -->
+  <rect class="ext" x="772" y="74" width="220" height="78" rx="11"/>
+  <text class="title" x="882" y="106" text-anchor="middle">PDF Search</text>
+  <text class="sub"   x="882" y="132" text-anchor="middle">:8081</text>
+
+  <rect class="ext" x="772" y="324" width="220" height="78" rx="11"/>
+  <text class="title" x="882" y="356" text-anchor="middle">Tavily</text>
+  <text class="sub"   x="882" y="382" text-anchor="middle">web search</text>
+
+  <rect class="vec" x="772" y="544" width="220" height="90" rx="11"/>
+  <text class="title" x="882" y="582" text-anchor="middle">MCP Server</text>
+  <text class="sub"   x="882" y="608" text-anchor="middle">:8083 · SSE</text>
+
+  <!-- MongoDB -->
+  <rect class="store" x="1062" y="546" width="172" height="86" rx="12"/>
+  <text class="title" x="1148" y="584" text-anchor="middle">MongoDB</text>
+  <text class="sub"   x="1148" y="610" text-anchor="middle">agentic_mcps</text>
+</svg>
